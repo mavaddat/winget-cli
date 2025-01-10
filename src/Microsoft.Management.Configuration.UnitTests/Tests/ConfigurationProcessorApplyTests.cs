@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ConfigurationProcessorApplyTests.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -7,24 +7,22 @@
 namespace Microsoft.Management.Configuration.UnitTests.Tests
 {
     using System;
-    using System.Collections;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Runtime.InteropServices;
     using System.Threading;
-    using Microsoft.CodeAnalysis.Emit;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
     using Microsoft.Management.Configuration.UnitTests.Helpers;
     using Microsoft.VisualBasic;
-    using Microsoft.VisualStudio.TestPlatform.ObjectModel;
     using Xunit;
     using Xunit.Abstractions;
 
     /// <summary>
-    /// Unit tests for running test on the processor.
+    /// Unit tests for running apply on the processor.
     /// </summary>
     [Collection("UnitTestCollection")]
+    [InProc]
+    [OutOfProc]
     public class ConfigurationProcessorApplyTests : ConfigurationProcessorTestBase
     {
         /// <summary>
@@ -43,7 +41,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_SetProcessorError()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
+            ConfigurationSet configurationSet = this.ConfigurationSet();
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             factory.Exceptions.Add(configurationSet, new FileNotFoundException());
@@ -61,14 +59,14 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_DuplicateIdentifiers()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnit1 = new ConfigurationUnit();
-            ConfigurationUnit configurationUnit2 = new ConfigurationUnit();
-            ConfigurationUnit configurationUnitDifferentIdentifier = new ConfigurationUnit();
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnit1 = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnit2 = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnitDifferentIdentifier = this.ConfigurationUnit();
             string sharedIdentifier = "SameIdentifier";
             configurationUnit1.Identifier = sharedIdentifier;
             configurationUnit2.Identifier = sharedIdentifier;
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnit1, configurationUnit2, configurationUnitDifferentIdentifier };
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnit1, configurationUnit2, configurationUnitDifferentIdentifier };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
 
@@ -82,7 +80,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             foreach (var configurationUnit in new ConfigurationUnit[] { configurationUnit1, configurationUnit2 })
             {
-                ApplyConfigurationUnitResult unitResult = result.UnitResults.First(x => x.Unit == configurationUnit);
+                ApplyConfigurationUnitResult? unitResult = result.UnitResults.First(x => x.Unit == configurationUnit);
                 Assert.NotNull(unitResult);
                 Assert.False(unitResult.PreviouslyInDesiredState);
                 Assert.False(unitResult.RebootRequired);
@@ -109,12 +107,12 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_MissingDependency()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnit = new ConfigurationUnit();
-            ConfigurationUnit configurationUnitMissingDependency = new ConfigurationUnit();
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnit = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnitMissingDependency = this.ConfigurationUnit();
             configurationUnit.Identifier = "Identifier";
             configurationUnitMissingDependency.Dependencies = new string[] { "Dependency" };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnit, configurationUnitMissingDependency };
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnit, configurationUnitMissingDependency };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
 
@@ -152,17 +150,17 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_DependencyCycle()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnit1 = new ConfigurationUnit();
-            ConfigurationUnit configurationUnit2 = new ConfigurationUnit();
-            ConfigurationUnit configurationUnit3 = new ConfigurationUnit();
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnit1 = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnit2 = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnit3 = this.ConfigurationUnit();
             configurationUnit1.Identifier = "Identifier1";
             configurationUnit2.Identifier = "Identifier2";
             configurationUnit3.Identifier = "Identifier3";
             configurationUnit1.Dependencies = new string[] { "Identifier3" };
             configurationUnit2.Dependencies = new string[] { "Identifier1" };
             configurationUnit3.Dependencies = new string[] { "Identifier2" };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnit1, configurationUnit2, configurationUnit3 };
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnit1, configurationUnit2, configurationUnit3 };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
 
@@ -194,18 +192,18 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_IntentRespected()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitAssert = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Assert };
-            ConfigurationUnit configurationUnitInform = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Inform };
-            ConfigurationUnit configurationUnitApply = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Apply };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitInform, configurationUnitApply, configurationUnitAssert };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitAssert = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Assert });
+            ConfigurationUnit configurationUnitInform = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Inform });
+            ConfigurationUnit configurationUnitApply = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitInform, configurationUnitApply, configurationUnitAssert };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
             TestConfigurationUnitProcessor unitProcessorAssert = setProcessor.CreateTestProcessor(configurationUnitAssert);
             TestConfigurationUnitProcessor unitProcessorInform = setProcessor.CreateTestProcessor(configurationUnitInform);
             TestConfigurationUnitProcessor unitProcessorApply = setProcessor.CreateTestProcessor(configurationUnitApply);
-            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResult { TestResult = ConfigurationTestResult.Negative };
+            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
@@ -245,17 +243,17 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_AssertionFailure()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitAssert = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Assert };
-            ConfigurationUnit configurationUnitApply = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Apply };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitApply, configurationUnitAssert };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitAssert = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Assert });
+            ConfigurationUnit configurationUnitApply = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitApply, configurationUnitAssert };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
             TestConfigurationUnitProcessor unitProcessorAssert = setProcessor.CreateTestProcessor(configurationUnitAssert);
             unitProcessorAssert.TestSettingsDelegate = () => throw new NullReferenceException();
             TestConfigurationUnitProcessor unitProcessorApply = setProcessor.CreateTestProcessor(configurationUnitApply);
-            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResult { TestResult = ConfigurationTestResult.Negative };
+            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
@@ -292,17 +290,17 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_AssertionNegative()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitAssert = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Assert };
-            ConfigurationUnit configurationUnitApply = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Apply };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitApply, configurationUnitAssert };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitAssert = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Assert });
+            ConfigurationUnit configurationUnitApply = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitApply, configurationUnitAssert };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
             TestConfigurationUnitProcessor unitProcessorAssert = setProcessor.CreateTestProcessor(configurationUnitAssert);
-            unitProcessorAssert.TestSettingsDelegate = () => new TestSettingsResult { TestResult = ConfigurationTestResult.Negative };
+            unitProcessorAssert.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitAssert) { TestResult = ConfigurationTestResult.Negative };
             TestConfigurationUnitProcessor unitProcessorApply = setProcessor.CreateTestProcessor(configurationUnitApply);
-            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResult { TestResult = ConfigurationTestResult.Negative };
+            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
@@ -332,14 +330,14 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_UnitAlreadyInCorrectState()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnit = new ConfigurationUnit { Intent = ConfigurationUnitIntent.Apply };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnit };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnit = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnit };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
             TestConfigurationUnitProcessor unitProcessor = setProcessor.CreateTestProcessor(configurationUnit);
-            unitProcessor.TestSettingsDelegate = () => new TestSettingsResult { TestResult = ConfigurationTestResult.Positive };
+            unitProcessor.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnit) { TestResult = ConfigurationTestResult.Positive };
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
@@ -365,16 +363,16 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void ApplySet_Progress()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit assert1 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Assert, Identifier = "Assert1" };
-            ConfigurationUnit assert2 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Assert, Identifier = "Assert2", Dependencies = new string[] { assert1.Identifier } };
-            ConfigurationUnit inform1 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Inform, Identifier = "Inform1" };
-            ConfigurationUnit apply1 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply1" };
-            ConfigurationUnit apply2 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply2" };
-            ConfigurationUnit apply3 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply3", Dependencies = new string[] { apply1.Identifier, apply2.Identifier } };
-            ConfigurationUnit apply4 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply4", ShouldApply = false };
-            ConfigurationUnit apply5 = new ConfigurationUnit() { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply5", Dependencies = new string[] { apply4.Identifier } };
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { assert2, assert1, inform1, apply1, apply3, apply4,  apply2, apply5 };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit assert1 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Assert, Identifier = "Assert1" });
+            ConfigurationUnit assert2 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Assert, Identifier = "Assert2", Dependencies = new string[] { assert1.Identifier } });
+            ConfigurationUnit inform1 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Inform, Identifier = "Inform1" });
+            ConfigurationUnit apply1 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply1" });
+            ConfigurationUnit apply2 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply2" });
+            ConfigurationUnit apply3 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply3", Dependencies = new string[] { apply1.Identifier, apply2.Identifier } });
+            ConfigurationUnit apply4 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply4", IsActive = false });
+            ConfigurationUnit apply5 = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply, Identifier = "Apply5", Dependencies = new string[] { apply4.Identifier } });
+            configurationSet.Units = new ConfigurationUnit[] { assert2, assert1, inform1, apply1, apply3, apply4,  apply2, apply5 };
 
             ManualResetEvent startProcessing = new ManualResetEvent(false);
 
@@ -397,7 +395,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.NotNull(result.ResultCode);
             Assert.Equal(Errors.WINGET_CONFIG_ERROR_DEPENDENCY_UNSATISFIED, result.ResultCode.HResult);
             Assert.NotNull(result.UnitResults);
-            Assert.Equal(configurationSet.ConfigurationUnits.Count, result.UnitResults.Count);
+            Assert.Equal(configurationSet.Units.Count, result.UnitResults.Count);
 
             // Verify that progress events match the expected
             ExpectedConfigurationChangeData[] expectedProgress = new ExpectedConfigurationChangeData[]
@@ -419,6 +417,12 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                 new ExpectedConfigurationChangeData() { Change = ConfigurationSetChangeEventType.UnitStateChanged, UnitState = ConfigurationUnitState.Skipped, Unit = apply5, HResult = Errors.WINGET_CONFIG_ERROR_DEPENDENCY_UNSATISFIED },
                 new ExpectedConfigurationChangeData() { Change = ConfigurationSetChangeEventType.SetStateChanged, SetState = ConfigurationSetState.Completed },
             };
+
+            // Drop the pending event if it happens to be present
+            if (progressEvents.Count > 0 && progressEvents[0].Change == ConfigurationSetChangeEventType.SetStateChanged && progressEvents[0].SetState == ConfigurationSetState.Pending)
+            {
+                progressEvents.RemoveAt(0);
+            }
 
             Assert.Equal(expectedProgress.Count(), progressEvents.Count);
 
@@ -456,6 +460,151 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             }
 
             this.VerifySummaryEvent(configurationSet, result, ConfigurationUnitResultSource.Precondition);
+        }
+
+        /// <summary>
+        /// Ensures that multiple apply operations are sequenced.
+        /// </summary>
+        [Fact]
+        public void ApplySet_Sequenced()
+        {
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitApply = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitApply };
+
+            ManualResetEvent startProcessing = new ManualResetEvent(true);
+            TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
+            factory.CreateSetProcessorDelegate = (f, c) =>
+            {
+                WaitOn(startProcessing);
+                return f.DefaultCreateSetProcessor(c);
+            };
+
+            TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
+            TestConfigurationUnitProcessor unitProcessorApply = setProcessor.CreateTestProcessor(configurationUnitApply);
+            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
+
+            ManualResetEvent applyEventWaiting = new ManualResetEvent(false);
+            ManualResetEvent completeApplyEvent = new ManualResetEvent(false);
+            unitProcessorApply.ApplySettingsDelegate = () =>
+            {
+                applyEventWaiting.Set();
+                WaitOn(completeApplyEvent);
+                return new ApplySettingsResultInstance(configurationUnitApply);
+            };
+
+            ConfigurationSet configurationSetThatWaits = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitThatWaits = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSetThatWaits.Units = new ConfigurationUnit[] { configurationUnitThatWaits };
+
+            TestConfigurationSetProcessor setThatWaitsProcessor = factory.CreateTestProcessor(configurationSetThatWaits);
+            TestConfigurationUnitProcessor unitThatWaitsProcessor = setProcessor.CreateTestProcessor(configurationUnitThatWaits);
+            unitThatWaitsProcessor.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
+
+            ManualResetEvent waitingUnitApply = new ManualResetEvent(false);
+            unitThatWaitsProcessor.ApplySettingsDelegate = () =>
+            {
+                WaitOn(waitingUnitApply);
+                return new ApplySettingsResultInstance(configurationUnitThatWaits);
+            };
+
+            ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
+
+            var applySetOperation = processor.ApplySetAsync(configurationSet, ApplyConfigurationSetFlags.None);
+            WaitOn(applyEventWaiting);
+
+            startProcessing.Reset();
+            var waitingSetOperation = processor.ApplySetAsync(configurationSetThatWaits, ApplyConfigurationSetFlags.None);
+            AutoResetEvent waitingProgress = new AutoResetEvent(false);
+            ConfigurationSetState progressState = ConfigurationSetState.Unknown;
+            waitingSetOperation.Progress += (result, changeData) =>
+            {
+                if (changeData.Change == ConfigurationSetChangeEventType.SetStateChanged)
+                {
+                    progressState = changeData.SetState;
+                    waitingProgress.Set();
+                }
+            };
+
+            startProcessing.Set();
+            WaitOn(waitingProgress);
+            Assert.Equal(ConfigurationSetState.Pending, progressState);
+
+            completeApplyEvent.Set();
+            WaitOn(waitingProgress);
+            Assert.Equal(ConfigurationSetState.InProgress, progressState);
+
+            waitingUnitApply.Set();
+            WaitOn(waitingProgress);
+            Assert.Equal(ConfigurationSetState.Completed, progressState);
+
+            waitingSetOperation.AsTask().Wait();
+        }
+
+        /// <summary>
+        /// Ensures that a consistency check apply is not blocked.
+        /// </summary>
+        [Fact]
+        public void ApplySet_ConsistencyCheckNotSequenced()
+        {
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitApply = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitApply };
+
+            ManualResetEvent startProcessing = new ManualResetEvent(true);
+            TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
+            factory.CreateSetProcessorDelegate = (f, c) =>
+            {
+                WaitOn(startProcessing);
+                return f.DefaultCreateSetProcessor(c);
+            };
+
+            TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
+            TestConfigurationUnitProcessor unitProcessorApply = setProcessor.CreateTestProcessor(configurationUnitApply);
+            unitProcessorApply.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
+
+            ManualResetEvent applyEventWaiting = new ManualResetEvent(false);
+            ManualResetEvent completeApplyEvent = new ManualResetEvent(false);
+            unitProcessorApply.ApplySettingsDelegate = () =>
+            {
+                applyEventWaiting.Set();
+                WaitOn(completeApplyEvent);
+                return new ApplySettingsResultInstance(configurationUnitApply);
+            };
+
+            ConfigurationSet configurationSetThatWaits = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitThatWaits = this.ConfigurationUnit().Assign(new { Intent = ConfigurationUnitIntent.Apply });
+            configurationSetThatWaits.Units = new ConfigurationUnit[] { configurationUnitThatWaits };
+
+            TestConfigurationSetProcessor setThatWaitsProcessor = factory.CreateTestProcessor(configurationSetThatWaits);
+            TestConfigurationUnitProcessor unitThatWaitsProcessor = setProcessor.CreateTestProcessor(configurationUnitThatWaits);
+            unitThatWaitsProcessor.TestSettingsDelegate = () => new TestSettingsResultInstance(configurationUnitApply) { TestResult = ConfigurationTestResult.Negative };
+
+            ManualResetEvent waitingUnitApply = new ManualResetEvent(false);
+            unitThatWaitsProcessor.ApplySettingsDelegate = () =>
+            {
+                WaitOn(waitingUnitApply);
+                return new ApplySettingsResultInstance(configurationUnitThatWaits);
+            };
+
+            ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
+
+            var applySetOperation = processor.ApplySetAsync(configurationSet, ApplyConfigurationSetFlags.None);
+            WaitOn(applyEventWaiting);
+
+            startProcessing.Reset();
+            var waitingSetOperation = processor.ApplySetAsync(configurationSetThatWaits, ApplyConfigurationSetFlags.PerformConsistencyCheckOnly);
+            Assert.True(waitingSetOperation.AsTask().Wait(10000));
+
+            completeApplyEvent.Set();
+        }
+
+        private static void WaitOn(WaitHandle waitable)
+        {
+            if (!waitable.WaitOne(10000))
+            {
+                throw new TimeoutException();
+            }
         }
 
         private struct ExpectedConfigurationChangeData

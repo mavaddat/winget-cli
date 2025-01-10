@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #pragma once
-
+#include <AppInstallerVersions.h>
 #include <chrono>
 #include <ostream>
 
@@ -11,6 +11,9 @@ namespace AppInstaller::Utility
     // Assumes that system_clock uses Linux epoch (as required by C++20 standard).
     // Time is also assumed to be after the epoch.
     void OutputTimePoint(std::ostream& stream, const std::chrono::system_clock::time_point& time, bool useRFC3339 = false);
+
+    // Converts the time point to a string using OutputTimePoint.
+    std::string TimePointToString(const std::chrono::system_clock::time_point& time, bool useRFC3339 = false);
 
     // Gets the current time as a string. Can be used as a file name.
     std::string GetCurrentTimeForFilename();
@@ -26,4 +29,9 @@ namespace AppInstaller::Utility
 
     // Converts the given unix epoch time to a system_clock::time_point.
     std::chrono::system_clock::time_point ConvertUnixEpochToSystemClock(int64_t epoch);
+
+    // Converts the given package version into a time_point using our custom format.
+    // Ensure that the package is expected to use this format, or you may get strange times.
+    // If the version is not convertable, the minimum time is returned.
+    std::chrono::system_clock::time_point GetTimePointFromVersion(const UInt64Version& version);
 }

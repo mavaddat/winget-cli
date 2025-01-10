@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="OpenConfigurationSetTests.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -7,11 +7,14 @@
 namespace Microsoft.Management.Configuration.UnitTests.Tests
 {
     using System;
-    using System.Linq;
-    using System.Runtime.InteropServices;
+    using System.Collections.Generic;
+    using Microsoft.Management.Configuration.Processor.Extensions;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
     using Microsoft.Management.Configuration.UnitTests.Helpers;
     using Microsoft.VisualBasic;
+    using Windows.Foundation.Collections;
+    using Windows.Storage.Streams;
+    using WinRT;
     using Xunit;
     using Xunit.Abstractions;
 
@@ -19,6 +22,8 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     /// Unit tests for parsing configuration sets from streams.
     /// </summary>
     [Collection("UnitTestCollection")]
+    [InProc]
+    [OutOfProc]
     public class OpenConfigurationSetTests : ConfigurationProcessorTestBase
     {
         /// <summary>
@@ -96,7 +101,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.Null(result.Set);
             Assert.NotNull(result.ResultCode);
             Assert.Equal(Errors.WINGET_CONFIG_ERROR_MISSING_FIELD, result.ResultCode.HResult);
-            Assert.Equal("properties", result.Field);
+            Assert.Equal("$schema", result.Field);
             Assert.Equal(0U, result.Line);
             Assert.Equal(0U, result.Column);
         }
@@ -165,7 +170,7 @@ properties:
             Assert.Null(result.ResultCode);
             Assert.Equal(string.Empty, result.Field);
 
-            var units = result.Set.ConfigurationUnits;
+            var units = result.Set.Units;
             Assert.Equal(3, units.Count);
             bool sawAssert = false;
             bool sawInform = false;
@@ -173,7 +178,7 @@ properties:
 
             foreach (var unit in units)
             {
-                Assert.Equal(unit.UnitName, unit.Intent.ToString());
+                Assert.Equal(unit.Type, unit.Intent.ToString());
                 switch (unit.Intent)
                 {
                     case ConfigurationUnitIntent.Assert: sawAssert = true; break;
@@ -261,13 +266,13 @@ properties:
 
             Assert.NotEqual(Guid.Empty, result.Set.InstanceIdentifier);
 
-            var units = result.Set.ConfigurationUnits;
+            var units = result.Set.Units;
             Assert.NotNull(units);
             Assert.Equal(1, units.Count);
 
             ConfigurationUnit unit = units[0];
             Assert.NotNull(unit);
-            Assert.Equal("Resource", unit.UnitName);
+            Assert.Equal("Resource", unit.Type);
             Assert.NotEqual(Guid.Empty, unit.InstanceIdentifier);
             Assert.Equal("Identifier", unit.Identifier);
             Assert.Equal(ConfigurationUnitIntent.Apply, unit.Intent);
@@ -278,7 +283,7 @@ properties:
             Assert.Contains("Dependency1", dependencies);
             Assert.Contains("Dependency2", dependencies);
 
-            var directives = unit.Directives;
+            var directives = unit.Metadata;
             Assert.NotNull(directives);
             Assert.Equal(2, directives.Count);
             Assert.Contains("Directive1", directives);
@@ -297,7 +302,7 @@ properties:
             Assert.Null(unit.Details);
             Assert.Equal(ConfigurationUnitState.Unknown, unit.State);
             Assert.Null(unit.ResultInformation);
-            Assert.True(unit.ShouldApply);
+            Assert.True(unit.IsActive);
         }
 
         /// <summary>
@@ -323,7 +328,7 @@ properties:
             Assert.NotNull(result.Set);
             Assert.Null(result.ResultCode);
 
-            var units = result.Set.ConfigurationUnits;
+            var units = result.Set.Units;
             Assert.NotNull(units);
             Assert.Equal(1, units.Count);
 
@@ -365,13 +370,12 @@ properties:
             Assert.Null(result.ResultCode);
 
             Assert.Equal("0.1", result.Set.SchemaVersion);
-            Assert.Single(result.Set.ConfigurationUnits);
+            Assert.Single(result.Set.Units);
 
-            var unit = result.Set.ConfigurationUnits[0];
+            var unit = result.Set.Units[0];
             Assert.NotNull(unit);
-            Assert.Equal("0.1", unit.SchemaVersion);
-            Assert.Equal("Module/Resource", unit.UnitName);
-            Assert.Empty(unit.Directives);
+            Assert.Equal("Module/Resource", unit.Type);
+            Assert.Empty(unit.Metadata);
         }
 
         /// <summary>
@@ -398,15 +402,14 @@ properties:
             Assert.Null(result.ResultCode);
 
             Assert.Equal("0.2", result.Set.SchemaVersion);
-            Assert.Single(result.Set.ConfigurationUnits);
+            Assert.Single(result.Set.Units);
 
-            var unit = result.Set.ConfigurationUnits[0];
+            var unit = result.Set.Units[0];
             Assert.NotNull(unit);
-            Assert.Equal("0.2", unit.SchemaVersion);
-            Assert.Equal("Resource", unit.UnitName);
-            Assert.Single(unit.Directives);
-            Assert.True(unit.Directives.ContainsKey(ModuleDirective));
-            Assert.Equal("Module", unit.Directives[ModuleDirective]);
+            Assert.Equal("Resource", unit.Type);
+            Assert.Single(unit.Metadata);
+            Assert.True(unit.Metadata.ContainsKey(ModuleDirective));
+            Assert.Equal("Module", unit.Metadata[ModuleDirective]);
         }
 
         /// <summary>
@@ -463,6 +466,415 @@ properties:
             Assert.Equal("Module/", result.Value);
             Assert.Equal(5U, result.Line);
             Assert.NotEqual(0U, result.Column);
+        }
+
+        /// <summary>
+        /// Verifies that the configuration set (0.2) can be serialized and reopened correctly.
+        /// </summary>
+        [Fact]
+        public void TestSet_Serialize_0_2()
+        {
+            ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics();
+
+            OpenConfigurationSetResult openResult = processor.OpenConfigurationSet(this.CreateStream(@"
+properties:
+  configurationVersion: 0.2
+  assertions:
+    - resource: FakeModule/FakeResource
+      id: TestId
+      directives:
+        description: FakeDescription
+        allowPrerelease: true
+        securityContext: elevated
+      settings:
+        TestString: Hello
+        TestBool: false
+        TestInt: 1234  
+  resources:
+    - resource: FakeModule2/FakeResource2
+      id: TestId2
+      dependsOn:
+        - TestId
+        - dependency2
+        - dependency3
+      directives:
+        description: FakeDescription2
+        securityContext: elevated
+      settings:
+        TestString: Bye
+        TestBool: true
+        TestInt: 4321
+        Mapping:
+          Key: TestValue
+"));
+
+            // Serialize set.
+            ConfigurationSet configurationSet = openResult.Set;
+            InMemoryRandomAccessStream stream = new InMemoryRandomAccessStream();
+            configurationSet.Serialize(stream);
+
+            string yamlOutput = this.ReadStream(stream);
+
+            // Reopen configuration set from serialized string and verify values.
+            OpenConfigurationSetResult serializedSetResult = processor.OpenConfigurationSet(this.CreateStream(yamlOutput));
+            Assert.Null(serializedSetResult.ResultCode);
+            ConfigurationSet set = serializedSetResult.Set;
+            Assert.NotNull(set);
+
+            Assert.Equal("0.2", set.SchemaVersion);
+            Assert.Equal(2, set.Units.Count);
+
+            Assert.Equal("FakeResource", set.Units[0].Type);
+            Assert.Equal(ConfigurationUnitIntent.Assert, set.Units[0].Intent);
+            Assert.Equal("TestId", set.Units[0].Identifier);
+            this.VerifyValueSet(set.Units[0].Metadata, new ("description", "FakeDescription"), new ("allowPrerelease", true), new ("securityContext", "elevated"), new ("module", "FakeModule"));
+            this.VerifyValueSet(set.Units[0].Settings, new ("TestString", "Hello"), new ("TestBool", false), new ("TestInt", 1234));
+
+            Assert.Equal("FakeResource2", set.Units[1].Type);
+            Assert.Equal(ConfigurationUnitIntent.Apply, set.Units[1].Intent);
+            Assert.Equal("TestId2", set.Units[1].Identifier);
+            this.VerifyStringArray(set.Units[1].Dependencies, "TestId", "dependency2", "dependency3");
+            this.VerifyValueSet(set.Units[1].Metadata, new ("description", "FakeDescription2"), new ("securityContext", "elevated"), new ("module", "FakeModule2"));
+
+            ValueSet mapping = new ValueSet();
+            mapping.Add("Key", "TestValue");
+            this.VerifyValueSet(set.Units[1].Settings, new ("TestString", "Bye"), new ("TestBool", true), new ("TestInt", 4321), new ("Mapping", mapping));
+        }
+
+        /// <summary>
+        /// Verifies that the configuration set (0.3) can be serialized and reopened correctly.
+        /// </summary>
+        [Fact]
+        public void TestSet_Serialize_0_3()
+        {
+            ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics();
+
+            OpenConfigurationSetResult openResult = processor.OpenConfigurationSet(this.CreateStream(@"
+$schema: https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json
+metadata:
+  description: FakeSetDescription
+variables:
+  var1: Test1
+  var2: 42
+parameters:
+  param1:
+    type: securestring
+  param2:
+    type: int
+    defaultValue: 89
+resources:
+  - type: FakeModule/FakeResource
+    name: TestId
+    metadata:
+      description: FakeDescription
+      allowPrerelease: true
+      securityContext: elevated
+    properties:
+      TestString: Hello
+      TestBool: false
+      TestInt: 1234  
+  - type: FakeModule2/FakeResource2
+    name: TestId2
+    dependsOn:
+      - TestId
+      - dependency2
+      - dependency3
+    metadata:
+      description: FakeDescription2
+      securityContext: elevated
+    properties:
+      TestString: Bye
+      TestBool: true
+      TestInt: 4321
+      Mapping:
+        Key: TestValue
+"));
+
+            // Serialize set.
+            ConfigurationSet configurationSet = openResult.Set;
+            InMemoryRandomAccessStream stream = new InMemoryRandomAccessStream();
+            configurationSet.Serialize(stream);
+
+            string yamlOutput = this.ReadStream(stream);
+
+            // Reopen configuration set from serialized string and verify values.
+            OpenConfigurationSetResult serializedSetResult = processor.OpenConfigurationSet(this.CreateStream(yamlOutput));
+            Assert.Null(serializedSetResult.ResultCode);
+            ConfigurationSet set = serializedSetResult.Set;
+            Assert.NotNull(set);
+
+            Assert.Equal("0.3", set.SchemaVersion);
+            Assert.Equal(2, set.Units.Count);
+
+            this.VerifyValueSet(set.Metadata, new KeyValuePair<string, object>("description", "FakeSetDescription"));
+            this.VerifyValueSet(set.Variables, new ("var1", "Test1"), new ("var2", 42));
+
+            Assert.Equal(2, set.Parameters.Count);
+            this.VerifyParameter(set.Parameters[0], "param1", Windows.Foundation.PropertyType.String, true);
+            this.VerifyParameter(set.Parameters[1], "param2", Windows.Foundation.PropertyType.Int64, false, 89);
+
+            Assert.Equal("FakeModule/FakeResource", set.Units[0].Type);
+            Assert.Equal("TestId", set.Units[0].Identifier);
+            this.VerifyValueSet(set.Units[0].Metadata, new ("description", "FakeDescription"), new ("allowPrerelease", true), new ("securityContext", "elevated"));
+            this.VerifyValueSet(set.Units[0].Settings, new ("TestString", "Hello"), new ("TestBool", false), new ("TestInt", 1234));
+
+            Assert.Equal("FakeModule2/FakeResource2", set.Units[1].Type);
+            Assert.Equal("TestId2", set.Units[1].Identifier);
+            this.VerifyStringArray(set.Units[1].Dependencies, "TestId", "dependency2", "dependency3");
+            this.VerifyValueSet(set.Units[1].Metadata, new ("description", "FakeDescription2"), new ("securityContext", "elevated"));
+
+            ValueSet mapping = new ValueSet();
+            mapping.Add("Key", "TestValue");
+            this.VerifyValueSet(set.Units[1].Settings, new ("TestString", "Bye"), new ("TestBool", true), new ("TestInt", 4321), new ("Mapping", mapping));
+        }
+
+        /// <summary>
+        /// Test for using version 0.3 schema.
+        /// </summary>
+        [Fact]
+        public void BasicVersion_0_3()
+        {
+            ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics();
+
+            OpenConfigurationSetResult result = processor.OpenConfigurationSet(this.CreateStream(@"
+$schema: https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json
+metadata:
+  a: 1
+  b: '2'
+variables:
+  v1: var1
+  v2: 42
+resources:
+  - name: Name
+    type: Module/Resource
+    metadata:
+      e: '5'
+      f: 6
+    properties:
+      c: 3
+      d: '4'
+    dependsOn:
+      - g
+      - h
+  - name: Name2
+    type: Module/Resource2
+    dependsOn:
+      - m
+    properties:
+      l: '10'
+    metadata:
+      i: '7'
+      j: 8
+      q: 42
+"));
+
+            Assert.Null(result.ResultCode);
+            Assert.NotNull(result.Set);
+            Assert.Equal(string.Empty, result.Field);
+            Assert.Equal(string.Empty, result.Value);
+            Assert.Equal(0U, result.Line);
+            Assert.Equal(0U, result.Column);
+
+            ConfigurationSet set = result.Set;
+
+            Assert.Equal("0.3", set.SchemaVersion);
+            Assert.NotNull(set.SchemaUri);
+            Assert.Equal("https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json", set.SchemaUri.ToString());
+
+            this.VerifyValueSet(set.Metadata, new ("a", 1), new ("b", "2"));
+            this.VerifyValueSet(set.Variables, new ("v1", "var1"), new ("v2", 42));
+
+            Assert.Empty(set.Parameters);
+
+            Assert.Equal(2, set.Units.Count);
+
+            this.VerifyUnitProperties(set.Units[0], "Name", "Module/Resource");
+            this.VerifyValueSet(set.Units[0].Metadata, new ("e", "5"), new ("f", 6));
+            this.VerifyValueSet(set.Units[0].Settings, new ("c", 3), new ("d", "4"));
+            this.VerifyStringArray(set.Units[0].Dependencies, "g", "h");
+
+            this.VerifyUnitProperties(set.Units[1], "Name2", "Module/Resource2");
+            this.VerifyValueSet(set.Units[1].Metadata, new ("i", "7"), new ("j", 8), new ("q", 42));
+            this.VerifyValueSet(set.Units[1].Settings, new KeyValuePair<string, object>("l", "10"));
+            this.VerifyStringArray(set.Units[1].Dependencies, "m");
+        }
+
+        /// <summary>
+        /// Test for the successful parsing of default value of a parameter.
+        /// </summary>
+        /// <param name="type">The type.</param>
+        /// <param name="defaultValue">The default value.</param>
+        /// <param name="expectedValue">The expected value.</param>
+        /// <param name="expectedType">The expected type.</param>
+        /// <param name="secure">The secure state.</param>
+        [Theory]
+        [InlineData("string", "abc", "abc", Windows.Foundation.PropertyType.String)]
+        [InlineData("string", "'42'", "42", Windows.Foundation.PropertyType.String)]
+        [InlineData("securestring", "abcdef", "abcdef", Windows.Foundation.PropertyType.String, true)]
+        [InlineData("int", "42", 42, Windows.Foundation.PropertyType.Int64)]
+        [InlineData("bool", "true", true, Windows.Foundation.PropertyType.Boolean)]
+        [InlineData("object", "string", "string", Windows.Foundation.PropertyType.Inspectable)]
+        [InlineData("object", "42", 42, Windows.Foundation.PropertyType.Inspectable)]
+        [InlineData("secureobject", "string", "string", Windows.Foundation.PropertyType.Inspectable, true)]
+        [InlineData("secureobject", "42", 42, Windows.Foundation.PropertyType.Inspectable, true)]
+        public void Parameters_DefaultValue_Success(string type, string defaultValue, object expectedValue, Windows.Foundation.PropertyType expectedType, bool secure = false)
+        {
+            this.TestParameterDefaultValue(type, defaultValue, expectedValue, expectedType, secure);
+        }
+
+        /// <summary>
+        /// Test for the failed parsing of default value of a parameter.
+        /// </summary>
+        /// <param name="type">The type.</param>
+        /// <param name="defaultValue">The default value.</param>
+        /// <param name="expectedValue">The expected value.</param>
+        [Theory]
+        [InlineData("string", "42")]
+        [InlineData("int", "abc")]
+        [InlineData("int", "'42'", "42")]
+        [InlineData("bool", "'true'", "true")]
+        public void Parameters_DefaultValue_Failure(string type, string defaultValue, object? expectedValue = null)
+        {
+            this.TestParameterDefaultValue(type, defaultValue, expectedValue);
+        }
+
+        /// <summary>
+        /// Test to ensure that schema version and uri is working as expected.
+        /// </summary>
+        /// <param name="version">The version.</param>
+        /// <param name="uri">The uri.</param>
+        [Theory]
+        [InlineData("0.1", null)]
+        [InlineData("0.2", null)]
+        [InlineData("0.3", "https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json")]
+        public void Schema_Version_Uri(string version, string? uri)
+        {
+            ConfigurationSet set = this.ConfigurationSet();
+
+            set.SchemaVersion = version;
+            if (uri != null)
+            {
+                Assert.Equal(uri, set.SchemaUri.AbsoluteUri);
+            }
+            else
+            {
+                Assert.Null(set.SchemaUri);
+            }
+
+            if (!string.IsNullOrEmpty(uri))
+            {
+                set.SchemaUri = new Uri(uri);
+                Assert.Equal(version, set.SchemaVersion);
+            }
+        }
+
+        private void TestParameterDefaultValue(string type, string defaultValue, object? expectedValue = null, Windows.Foundation.PropertyType? expectedType = null, bool secure = false)
+        {
+            ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics();
+
+            OpenConfigurationSetResult result = processor.OpenConfigurationSet(this.CreateStream(string.Format(
+                @"
+$schema: https://raw.githubusercontent.com/PowerShell/DSC/main/schemas/2023/08/config/document.json
+parameters:
+  {0}:
+    type: {0}
+    defaultValue: {1}
+",
+                type,
+                defaultValue)));
+
+            if (expectedType != null)
+            {
+                Assert.Null(result.ResultCode);
+                Assert.NotNull(result.Set);
+                Assert.Equal(string.Empty, result.Field);
+                Assert.Equal(string.Empty, result.Value);
+                Assert.Equal(0U, result.Line);
+                Assert.Equal(0U, result.Column);
+
+                var parameters = result.Set.Parameters;
+                Assert.NotNull(parameters);
+                Assert.Single(parameters);
+
+                Assert.Equal(type, parameters[0].Name);
+                Assert.Equal(expectedType, parameters[0].Type);
+                Assert.Equal(secure, parameters[0].IsSecure);
+
+                Assert.NotNull(expectedValue);
+                this.VerifyObject(expectedValue, parameters[0].DefaultValue);
+            }
+            else
+            {
+                Assert.NotNull(result.ResultCode);
+                Assert.Equal(Errors.WINGET_CONFIG_ERROR_INVALID_FIELD_VALUE, result.ResultCode.HResult);
+                Assert.Null(result.Set);
+                Assert.Equal("defaultValue", result.Field);
+                Assert.Equal(expectedValue?.ToString() ?? defaultValue, result.Value);
+                Assert.NotEqual(0U, result.Line);
+                Assert.NotEqual(0U, result.Column);
+            }
+        }
+
+        private void VerifyUnitProperties(ConfigurationUnit unit, string identifier, string type)
+        {
+            Assert.NotNull(unit);
+            Assert.Equal(identifier, unit.Identifier);
+            Assert.Equal(type, unit.Type);
+        }
+
+        private void VerifyValueSet(ValueSet values, params KeyValuePair<string, object>[] expected)
+        {
+            Assert.NotNull(values);
+            Assert.Equal(expected.Length, values.Count);
+
+            foreach (var expectation in expected)
+            {
+                Assert.True(values.ContainsKey(expectation.Key), $"Not Found {expectation.Key}");
+                object value = values[expectation.Key];
+
+                this.VerifyObject(expectation.Value, value);
+            }
+        }
+
+        private void VerifyStringArray(IList<string> strings, params string[] expected)
+        {
+            Assert.NotNull(strings);
+            Assert.Equal(expected.Length, strings.Count);
+        }
+
+        private void VerifyParameter(ConfigurationParameter parameter, string name, Windows.Foundation.PropertyType type, bool secure, object? defaultValue = null)
+        {
+            Assert.Equal(name, parameter.Name);
+            Assert.Equal(type, parameter.Type);
+            Assert.Equal(secure, parameter.IsSecure);
+            this.VerifyObject(defaultValue, parameter.DefaultValue);
+        }
+
+        private void VerifyObject(object? expectedValue, object? actualValue)
+        {
+            if (expectedValue != null)
+            {
+                Assert.NotNull(actualValue);
+
+                switch (expectedValue)
+                {
+                    case int i:
+                        Assert.Equal(i, (int)(long)actualValue);
+                        break;
+                    case string s:
+                        Assert.Equal(s, (string)actualValue);
+                        break;
+                    case bool b:
+                        Assert.Equal(b, (bool)actualValue);
+                        break;
+                    case ValueSet v:
+                        Assert.True(v.ContentEquals(actualValue.As<ValueSet>()));
+                        break;
+                    default:
+                        Assert.Fail($"Add expected type `{expectedValue.GetType().Name}` to switch statement.");
+                        break;
+                }
+            }
         }
     }
 }

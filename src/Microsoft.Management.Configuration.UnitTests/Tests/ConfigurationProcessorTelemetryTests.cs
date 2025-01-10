@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ConfigurationProcessorTelemetryTests.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -25,6 +25,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     /// Unit tests for running test on the processor.
     /// </summary>
     [Collection("UnitTestCollection")]
+    [InProc]
     public class ConfigurationProcessorTelemetryTests : ConfigurationProcessorTestBase
     {
         /// <summary>
@@ -49,7 +50,8 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             GetConfigurationUnitSettingsResult result = testObjects.Processor.GetUnitSettings(testObjects.Unit);
 
-            Assert.Empty(this.EventSink.Events);
+            Assert.Single(this.EventSink.Events);
+            Assert.Equal(TelemetryEvent.ConfigUnitRunName, this.EventSink.Events[0].Name);
         }
 
         /// <summary>
@@ -160,7 +162,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             testObjects.Processor = this.CreateConfigurationProcessorWithDiagnostics(testObjects.Factory);
             testObjects.CreateDetails();
 
-            testObjects.Unit.UnitName = "TestUnitName";
+            testObjects.Unit.Type = "TestUnitName";
             testObjects.UnitDetails.ModuleName = "TestModuleName";
 
             string setting1 = "setting1";
@@ -179,7 +181,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.Equal(string.Empty, runEvent.Caller);
             Assert.Equal(Guid.Empty, Guid.Parse(runEvent.Properties[TelemetryEvent.SetID]));
             Assert.NotEqual(Guid.Empty, Guid.Parse(runEvent.Properties[TelemetryEvent.UnitID]));
-            Assert.Equal(testObjects.Unit.UnitName, runEvent.Properties[TelemetryEvent.UnitName]);
+            Assert.Equal(testObjects.Unit.Type, runEvent.Properties[TelemetryEvent.UnitName]);
             Assert.Equal(testObjects.UnitDetails.ModuleName, runEvent.Properties[TelemetryEvent.ModuleName]);
             Assert.Equal(((int)testObjects.Unit.Intent).ToString(), runEvent.Properties[TelemetryEvent.UnitIntent]);
             Assert.Equal(((int)ConfigurationUnitIntent.Inform).ToString(), runEvent.Properties[TelemetryEvent.RunIntent]);
@@ -203,9 +205,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
                 if (getFails)
                 {
-                    this.GetResult = new GetSettingsResult();
-                    this.GetResult.ResultInformation.ResultCode = new NullReferenceException();
-                    this.GetResult.ResultInformation.ResultSource = ConfigurationUnitResultSource.UnitProcessing;
+                    var getResult = new GetSettingsResultInstance(this.Unit);
+                    getResult.InternalResult.ResultCode = new NullReferenceException();
+                    getResult.InternalResult.ResultSource = ConfigurationUnitResultSource.UnitProcessing;
+                    this.GetResult = getResult;
                     this.UnitProcessor.GetSettingsDelegate = () => this.GetResult;
                 }
             }
@@ -216,7 +219,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             public TestConfigurationUnitProcessor UnitProcessor { get; set; }
 
-            public GetSettingsResult? GetResult { get; set; }
+            public IGetSettingsResult? GetResult { get; set; }
 
             public TestConfigurationUnitProcessorDetails? UnitDetails { get; set; }
 
@@ -225,11 +228,11 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             public void CreateDetails(bool isPublic = true)
             {
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
-                this.UnitDetails = this.Factory.NullProcessor.CreateUnitDetails(this.Unit, ConfigurationUnitDetailLevel.Catalog);
+                this.UnitDetails = this.Factory.NullProcessor.CreateUnitDetails(this.Unit, ConfigurationUnitDetailFlags.ReadOnly);
 #pragma warning restore CS8602 // Dereference of a possibly null reference.
                 this.UnitDetails.IsPublic = isPublic;
 
-                this.Processor?.GetUnitDetails(this.Unit, ConfigurationUnitDetailLevel.Catalog);
+                this.Processor?.GetUnitDetails(this.Unit, ConfigurationUnitDetailFlags.ReadOnly);
             }
         }
     }

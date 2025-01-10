@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="WinGetIntegrity.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -12,7 +12,8 @@ namespace Microsoft.WinGet.Client.Engine.Common
     using System.Management.Automation;
     using Microsoft.WinGet.Client.Engine.Exceptions;
     using Microsoft.WinGet.Client.Engine.Helpers;
-    using Microsoft.WinGet.Client.Engine.Properties;
+    using Microsoft.WinGet.Common.Command;
+    using Microsoft.WinGet.Resources;
 
     /// <summary>
     /// Validates winget runs correctly.
@@ -22,9 +23,9 @@ namespace Microsoft.WinGet.Client.Engine.Common
         /// <summary>
         /// Verifies winget runs correctly. If it doesn't, tries to find the reason why it failed.
         /// </summary>
-        /// <param name="psCmdlet">The calling cmdlet.</param>
+        /// <param name="pwshCmdlet">The calling cmdlet.</param>
         /// <param name="expectedVersion">Expected version.</param>
-        public static void AssertWinGet(PSCmdlet psCmdlet, string expectedVersion)
+        public static void AssertWinGet(PowerShellCmdlet pwshCmdlet, string expectedVersion)
         {
             // In-proc shouldn't have other dependencies and thus should be ok.
             if (Utilities.UsesInProcWinget)
@@ -43,22 +44,22 @@ namespace Microsoft.WinGet.Client.Engine.Common
                 // Start by calling winget without its WindowsApp PFN path.
                 // If it succeeds and the exit code is 0 then we are good.
                 var wingetCliWrapper = new WingetCLIWrapper(false);
-                var result = wingetCliWrapper.RunCommand("--version");
+                var result = wingetCliWrapper.RunCommand(pwshCmdlet, "--version");
                 result.VerifyExitCode();
             }
             catch (Win32Exception e)
             {
-                psCmdlet.WriteDebug($"'winget.exe' Win32Exception {e.Message}");
-                throw new WinGetIntegrityException(GetReason(psCmdlet));
+                pwshCmdlet.Write(StreamType.Verbose, $"'winget.exe' Win32Exception {e.Message}");
+                throw new WinGetIntegrityException(GetReason(pwshCmdlet));
             }
             catch (Exception e) when (e is WinGetCLIException || e is WinGetCLITimeoutException)
             {
-                psCmdlet.WriteDebug($"'winget.exe' WinGetCLIException {e.Message}");
+                pwshCmdlet.Write(StreamType.Verbose, $"'winget.exe' WinGetCLIException {e.Message}");
                 throw new WinGetIntegrityException(IntegrityCategory.Failure, e);
             }
             catch (Exception e)
             {
-                psCmdlet.WriteDebug($"'winget.exe' Exception {e.Message}");
+                pwshCmdlet.Write(StreamType.Verbose, $"'winget.exe' Exception {e.Message}");
                 throw new WinGetIntegrityException(IntegrityCategory.Unknown, e);
             }
 
@@ -67,42 +68,49 @@ namespace Microsoft.WinGet.Client.Engine.Common
             {
                 // This assumes caller knows that the version exist.
                 WinGetVersion expectedWinGetVersion = new WinGetVersion(expectedVersion);
-                var installedVersion = WinGetVersion.InstalledWinGetVersion;
+                var installedVersion = WinGetVersion.InstalledWinGetVersion(pwshCmdlet);
                 if (expectedWinGetVersion.CompareTo(installedVersion) != 0)
                 {
                     throw new WinGetIntegrityException(
                         IntegrityCategory.UnexpectedVersion,
                         string.Format(
                             Resources.IntegrityUnexpectedVersionMessage,
-                            installedVersion,
+                            installedVersion.TagVersion,
                             expectedVersion));
                 }
             }
         }
 
-        /// <summary>
-        /// Verifies winget runs correctly.
-        /// </summary>
-        /// <param name="psCmdlet">The calling cmdlet.</param>
-        /// <param name="expectedVersion">Expected version.</param>
-        /// <returns>Integrity category.</returns>
-        public static IntegrityCategory GetIntegrityCategory(PSCmdlet psCmdlet, string expectedVersion)
-        {
-            try
-            {
-                AssertWinGet(psCmdlet, expectedVersion);
-            }
-            catch (WinGetIntegrityException e)
-            {
-                return e.Category;
-            }
-
-            return IntegrityCategory.Installed;
-        }
-
-        private static IntegrityCategory GetReason(PSCmdlet psCmdlet)
+        private static IntegrityCategory GetReason(PowerShellCmdlet pwshCmdlet)
         {
             // Ok, so you are here because calling winget --version failed. Lets try to figure out why.
+            var category = IntegrityCategory.Unknown;
+            pwshCmdlet.ExecuteInPowerShellThread(() =>
+            {
+                // When running winget.exe on PowerShell the message of the Win32Exception will distinguish between
+                // 'The system cannot find the file specified' and 'No applicable app licenses found' but of course
+                // the HRESULT is the same (E_FAIL).
+                // To not compare strings let Powershell handle it. If calling winget throws an
+                // ApplicationFailedException then is most likely that the license is not there.
+                try
+                {
+                    var ps = PowerShell.Create(RunspaceMode.CurrentRunspace);
+                    ps.AddCommand("winget").Invoke();
+                }
+                catch (ApplicationFailedException e)
+                {
+                    pwshCmdlet.Write(StreamType.Verbose, e.Message);
+                    category = IntegrityCategory.AppInstallerNoLicense;
+                }
+                catch (Exception)
+                {
+                }
+            });
+
+            if (category != IntegrityCategory.Unknown)
+            {
+                return category;
+            }
 
             // First lets check if the file is there, which means it is installed or someone is taking our place.
             if (File.Exists(WingetCLIWrapper.WinGetFullPath))
@@ -113,7 +121,7 @@ namespace Microsoft.WinGet.Client.Engine.Common
                 if (File.Exists(wingetAliasPath))
                 {
                     // App execution alias is enabled. Then maybe the path?
-                    string envPath = Environment.GetEnvironmentVariable(Constants.PathEnvVar, EnvironmentVariableTarget.User);
+                    string? envPath = Environment.GetEnvironmentVariable(Constants.PathEnvVar, EnvironmentVariableTarget.User);
                     if (string.IsNullOrEmpty(envPath) ||
                         !envPath.EndsWith(Utilities.LocalDataWindowsAppPath) ||
                         !envPath.Contains($"{Utilities.LocalDataWindowsAppPath};"))
@@ -127,7 +135,7 @@ namespace Microsoft.WinGet.Client.Engine.Common
                 }
             }
 
-            // Not under %LOCALAPPDATA%\\Microsoft\\WindowsApps\PFM\
+            // Not under %LOCALAPPDATA%\\Microsoft\\WindowsApps\PFN\
 
             // Check OS version
             if (!IsSupportedOSVersion())
@@ -137,8 +145,8 @@ namespace Microsoft.WinGet.Client.Engine.Common
 
             // It could be that AppInstaller package is old or the package is not
             // registered at this point. To know that, call Get-AppxPackage.
-            var appxModule = new AppxModuleHelper(psCmdlet);
-            string version = appxModule.GetAppInstallerPropertyValue("Version");
+            var appxModule = new AppxModuleHelper(pwshCmdlet);
+            string? version = appxModule.GetAppInstallerPropertyValue("Version");
             if (version is null)
             {
                 // This can happen in Windows Sandbox.

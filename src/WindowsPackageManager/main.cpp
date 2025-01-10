@@ -13,6 +13,8 @@
 #include <AppInstallerFileLogger.h>
 #include <AppInstallerStrings.h>
 #include <AppInstallerTelemetry.h>
+#include <AppInstallerErrors.h>
+#include <winget/GroupPolicy.h>
 #include <ComClsids.h>
 
 using namespace winrt::Microsoft::Management::Deployment;
@@ -23,8 +25,16 @@ CoCreatableClassWrlCreatorMapInclude(FindPackagesOptions);
 CoCreatableClassWrlCreatorMapInclude(CreateCompositePackageCatalogOptions);
 CoCreatableClassWrlCreatorMapInclude(InstallOptions);
 CoCreatableClassWrlCreatorMapInclude(UninstallOptions);
+CoCreatableClassWrlCreatorMapInclude(DownloadOptions);
 CoCreatableClassWrlCreatorMapInclude(PackageMatchFilter);
+CoCreatableClassWrlCreatorMapInclude(AuthenticationArguments);
 CoCreatableClassWrlCreatorMapInclude(PackageManagerSettings);
+CoCreatableClassWrlCreatorMapInclude(RepairOptions);
+CoCreatableClassWrlCreatorMapInclude(AddPackageCatalogOptions);
+CoCreatableClassWrlCreatorMapInclude(RemovePackageCatalogOptions);
+
+// Shim for configuration static functions
+CoCreatableClassWrlCreatorMapInclude(ConfigurationStaticFunctionsShim);
 
 extern "C"
 {
@@ -79,6 +89,7 @@ extern "C"
     WINDOWS_PACKAGE_MANAGER_API WindowsPackageManagerInProcModuleInitialize() try
     {
         ::Microsoft::WRL::Module<::Microsoft::WRL::ModuleType::InProc>::Create();
+        AppInstaller::CLI::InProcInitialize();
         return S_OK;
     }
     CATCH_RETURN();
@@ -108,6 +119,8 @@ extern "C"
 
     WINDOWS_PACKAGE_MANAGER_API WindowsPackageManagerInProcModuleGetActivationFactory(HSTRING classId, void** factory) try
     {
+        RETURN_HR_IF(APPINSTALLER_CLI_ERROR_BLOCKED_BY_POLICY, !::AppInstaller::Settings::GroupPolicies().IsEnabled(::AppInstaller::Settings::TogglePolicy::Policy::WinGet));
+
         return WINRT_GetActivationFactory(classId, factory);
     }
     CATCH_RETURN();

@@ -204,6 +204,46 @@ TEST_CASE("SettingProgressBar", "[settings]")
     }
 }
 
+TEST_CASE("SettingsAnonymizePathForDisplay", "[settings]")
+{
+    auto again = DeleteUserSettingsFiles();
+
+    SECTION("Default")
+    {
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::AnonymizePathForDisplay>() == true);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("True")
+    {
+        std::string_view json = R"({ "visual": { "anonymizeDisplayedPaths": true } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::AnonymizePathForDisplay>() == true);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("False")
+    {
+        std::string_view json = R"({ "visual": { "anonymizeDisplayedPaths": false } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::AnonymizePathForDisplay>() == false);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Invalid Value")
+    {
+        std::string_view json = R"({ "visual": { "anonymizeDisplayedPaths": "notBoolean" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::AnonymizePathForDisplay>() == true);
+        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+    }
+}
+
 TEST_CASE("SettingLoggingLevelPreference", "[settings]")
 {
     auto again = DeleteUserSettingsFiles();
@@ -288,14 +328,15 @@ TEST_CASE("SettingAutoUpdateIntervalInMinutes", "[settings]")
     constexpr static auto cero = 0min;
     constexpr static auto threehundred = 300min;
 
-    SECTION("Default value")
-    {
-        UserSettingsTest userSettingTest;
+    std::chrono::minutes defaultAutoUpdateTime{};
 
-        REQUIRE(userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>() == cinq);
-        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    {
+        SetSetting(Stream::PrimaryUserSettings, "");
+        UserSettingsTest userSettingTest;
+        defaultAutoUpdateTime = userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>();
     }
-    SECTION("Valid value")
+
+    SECTION("Valid value 0")
     {
         std::string_view json = R"({ "source": { "autoUpdateIntervalInMinutes": 0 } })";
         SetSetting(Stream::PrimaryUserSettings, json);
@@ -304,7 +345,7 @@ TEST_CASE("SettingAutoUpdateIntervalInMinutes", "[settings]")
         REQUIRE(userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>() == cero);
         REQUIRE(userSettingTest.GetWarnings().size() == 0);
     }
-    SECTION("Valid value 0")
+    SECTION("Valid value 300")
     {
         std::string_view json = R"({ "source": { "autoUpdateIntervalInMinutes": 300 } })";
         SetSetting(Stream::PrimaryUserSettings, json);
@@ -319,7 +360,7 @@ TEST_CASE("SettingAutoUpdateIntervalInMinutes", "[settings]")
         SetSetting(Stream::PrimaryUserSettings, json);
         UserSettingsTest userSettingTest;
 
-        REQUIRE(userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>() == cinq);
+        REQUIRE(userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>() == defaultAutoUpdateTime);
         REQUIRE(userSettingTest.GetWarnings().size() == 1);
     }
     SECTION("Invalid type string")
@@ -328,7 +369,7 @@ TEST_CASE("SettingAutoUpdateIntervalInMinutes", "[settings]")
         SetSetting(Stream::PrimaryUserSettings, json);
         UserSettingsTest userSettingTest;
 
-        REQUIRE(userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>() == cinq);
+        REQUIRE(userSettingTest.Get<Setting::AutoUpdateTimeInMinutes>() == defaultAutoUpdateTime);
         REQUIRE(userSettingTest.GetWarnings().size() == 1);
     }
     SECTION("Overridden by Group Policy")
@@ -470,6 +511,58 @@ TEST_CASE("SettingsPortablePackageMachineRoot", "[settings]")
     }
 }
 
+TEST_CASE("SettingsDownloadDefaultDirectory", "[settings]")
+{
+    auto again = DeleteUserSettingsFiles();
+
+    SECTION("Valid path")
+    {
+        std::string_view json = R"({ "downloadBehavior": { "defaultDownloadDirectory": "C:/Foo/Bar" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::DownloadDefaultDirectory>() == "C:/Foo/Bar");
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+}
+
+TEST_CASE("SettingsConfigureDefaultModuleRoot", "[settings]")
+{
+    auto again = DeleteUserSettingsFiles();
+
+    SECTION("Valid path")
+    {
+        std::string_view json = R"({ "configureBehavior": { "defaultModuleRoot": "C:/Foo/Bar" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::ConfigureDefaultModuleRoot>() == "C:/Foo/Bar");
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+}
+
+TEST_CASE("SettingsArchiveExtractionMethod", "[settings]")
+{
+    auto again = DeleteUserSettingsFiles();
+
+    SECTION("Shell api")
+    {
+        std::string_view json = R"({ "installBehavior": { "archiveExtractionMethod": "shellApi" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::ArchiveExtractionMethod>() == AppInstaller::Archive::ExtractionMethod::ShellApi);
+    }
+    SECTION("Shell api")
+    {
+        std::string_view json = R"({ "installBehavior": { "archiveExtractionMethod": "tar" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::ArchiveExtractionMethod>() == AppInstaller::Archive::ExtractionMethod::Tar);
+    }
+}
+
 TEST_CASE("SettingsInstallScope", "[settings]")
 {
     auto again = DeleteUserSettingsFiles();
@@ -505,5 +598,65 @@ TEST_CASE("SettingsInstallScope", "[settings]")
         UserSettingsTest userSettingTest;
 
         REQUIRE(userSettingTest.Get<Setting::InstallScopeRequirement>() == AppInstaller::Manifest::ScopeEnum::Machine);
+    }
+}
+
+TEST_CASE("SettingsMaxResumes", "[settings]")
+{
+    auto again = DeleteUserSettingsFiles();
+
+    SECTION("Modify max number of resumes")
+    {
+        std::string_view json = R"({ "installBehavior": { "maxResumes": 5 } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::MaxResumes>() == 5);
+    }
+}
+
+TEST_CASE("LoggingChannels", "[settings]")
+{
+    auto again = DeleteUserSettingsFiles();
+
+    SECTION("Not provided")
+    {
+        std::string_view json = R"({ })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingChannelPreference>() == Channel::Defaults);
+    }
+    SECTION("No channels")
+    {
+        std::string_view json = R"({ "logging": { "channels": [] } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingChannelPreference>() == Channel::None);
+    }
+    SECTION("Default")
+    {
+        std::string_view json = R"({ "logging": { "channels": ["default"] } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingChannelPreference>() == Channel::Defaults);
+    }
+    SECTION("Multiple")
+    {
+        std::string_view json = R"({ "logging": { "channels": ["core","Repo","YAML"] } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingChannelPreference>() == (Channel::Core | Channel::Repo | Channel::YAML));
+    }
+    SECTION("Some invalid")
+    {
+        std::string_view json = R"({ "logging": { "channels": ["cli","sql","INVALID"] } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingChannelPreference>() == (Channel::CLI | Channel::SQL));
     }
 }

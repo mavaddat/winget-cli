@@ -28,6 +28,9 @@
     <Filter Include="Telemetry">
       <UniqueIdentifier>{552a58eb-8d07-41b2-87b5-3e71b9fb3cfd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Authentication">
+      <UniqueIdentifier>{9dd9ab66-00f0-4b18-90ca-6c5da3dc01c4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -96,7 +99,7 @@
     <ClInclude Include="Public\winget\ManifestYamlParser.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
-    <ClInclude Include="Public\winget\Registry.h">
+    <ClInclude Include="Public\winget\ManifestYamlWriter.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
     <ClInclude Include="Public\winget\NameNormalization.h">
@@ -115,9 +118,6 @@
       <Filter>Public\winget</Filter>
     </ClInclude>
     <ClInclude Include="Public\winget\ManifestCommon.h">
-      <Filter>Public\winget</Filter>
-    </ClInclude>
-    <ClInclude Include="Public\winget\GroupPolicy.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
     <ClInclude Include="Public\winget\Locale.h">
@@ -144,26 +144,14 @@
     <ClInclude Include="Public\winget\Debugging.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
-    <ClInclude Include="Public\winget\Filesystem.h">
-      <Filter>Public\winget</Filter>
-    </ClInclude>
     <ClInclude Include="Public\winget\PortableARPEntry.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
     <ClInclude Include="Public\winget\PortableFileEntry.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
-    <ClInclude Include="Public\winget\JsonUtil.h">
-      <Filter>Public\winget</Filter>
-    </ClInclude>
-    <ClInclude Include="Public\winget\ManagedFile.h">
-      <Filter>Public\winget</Filter>
-    </ClInclude>
     <ClInclude Include="Public\winget\MsixManifest.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Public\winget\Certificates.h">
-      <Filter>Public\winget</Filter>
     </ClInclude>
     <ClInclude Include="Public\winget\FolderFileWatcher.h">
       <Filter>Public\winget</Filter>
@@ -183,7 +171,43 @@
     <ClInclude Include="Public\winget\Pin.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
-    <ClInclude Include="Public\winget\WindowsFeature.h">
+    <ClInclude Include="Public\winget\SelfManagement.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\MSStore.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\Reboot.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Authentication\WebAccountManagerAuthenticator.h">
+      <Filter>Authentication</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\Authentication.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\NetworkSettings.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\PackageVersionDataManifest.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\HttpClientHelper.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\Rest.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\MSStoreDownload.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\FileCache.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\Fonts.h">
+      <Filter>Public\winget</Filter>
+    </ClInclude>
+    <ClInclude Include="Public\winget\OutputDebugStringLogger.h">
       <Filter>Public\winget</Filter>
     </ClInclude>
   </ItemGroup>
@@ -230,9 +254,6 @@
     <ClCompile Include="ExtensionCatalog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="JsonUtil.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Settings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -248,8 +269,8 @@
     <ClCompile Include="Manifest\YamlParser.cpp">
       <Filter>Manifest</Filter>
     </ClCompile>
-    <ClCompile Include="Registry.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Manifest\YamlWriter.cpp">
+      <Filter>Manifest</Filter>
     </ClCompile>
     <ClCompile Include="NameNormalization.cpp">
       <Filter>Source Files</Filter>
@@ -268,9 +289,6 @@
     </ClCompile>
     <ClCompile Include="Manifest\Manifest.cpp">
       <Filter>Manifest</Filter>
-    </ClCompile>
-    <ClCompile Include="GroupPolicy.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Locale.cpp">
       <Filter>Source Files</Filter>
@@ -296,19 +314,10 @@
     <ClCompile Include="Debugging.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Filesystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="PortableARPEntry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ManagedFile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="MsixManifest.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Certificates.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FolderFileWatcher.cpp">
@@ -332,7 +341,43 @@
     <ClCompile Include="Pin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WindowsFeature.cpp">
+    <ClCompile Include="SelfManagement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MSStore.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Reboot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Authentication\Authentication.cpp">
+      <Filter>Authentication</Filter>
+    </ClCompile>
+    <ClCompile Include="Authentication\WebAccountManagerAuthenticator.cpp">
+      <Filter>Authentication</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkSettings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PackageVersionDataManifest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpClientHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Rest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MSStoreDownload.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FileCache.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Fonts.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OutputDebugStringLogger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

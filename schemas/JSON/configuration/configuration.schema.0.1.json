@@ -1,5 +1,5 @@
 {
-    "$id": "https://aka.ms/schemas/dsc/configuration.schema.0.1.yaml",
+    "$id": "https://aka.ms/schemas/dsc/configuration.schema.0.1.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "description": "A representation of a configuration used by an orchestrator for WinDSC.",
     "type": "object",
@@ -25,7 +25,7 @@
                     "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
                     "maxLength": 128,
                     "default": "0.1.0",
-                    "description": "The configuration syntax version"
+                    "description": "The configuration syntax version."
                 }
             },
             "required": ["configurationVersion"]

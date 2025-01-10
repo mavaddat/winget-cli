@@ -59,7 +59,7 @@ namespace AppInstaller::Msix
 
                 UINT64 totalBytesRead = 0;
 
-                while (!progress.IsCancelled())
+                while (!progress.IsCancelledBy(CancelReason::Any))
                 {
                     ULONG bytesRead = 0;
                     HRESULT hr = stream->Read(buffer.get(), bufferSize, &bytesRead);
@@ -134,7 +134,7 @@ namespace AppInstaller::Msix
 
             UINT64 totalBytesRead = 0;
 
-            while (!progress.IsCancelled())
+            while (!progress.IsCancelledBy(CancelReason::Any))
             {
                 ULONG bytesRead = 0;
                 HRESULT hr = stream->Read(buffer.get(), bufferSize, &bytesRead);
@@ -465,6 +465,34 @@ namespace AppInstaller::Msix
         return { result };
     }
 
+    Msix::PackageIdInfo GetPackageIdInfoFromFullName(std::string_view fullName)
+    {
+        std::wstring fullNameWide = Utility::ConvertToUTF16(fullName);
+
+        UINT32 length = 0;
+        LONG returnVal = PackageIdFromFullName(fullNameWide.c_str(), PACKAGE_INFORMATION_BASIC, &length, nullptr);
+        if (returnVal != ERROR_INSUFFICIENT_BUFFER)
+        {
+            LOG_WIN32(returnVal);
+            return {};
+        }
+
+        THROW_HR_IF(E_UNEXPECTED, length == 0);
+
+        std::unique_ptr<BYTE[]> packageIdContent = std::make_unique<BYTE[]>(length);
+
+        returnVal = PackageIdFromFullName(fullNameWide.c_str(), PACKAGE_INFORMATION_BASIC, &length, packageIdContent.get());
+        if (returnVal != ERROR_SUCCESS)
+        {
+            LOG_WIN32(returnVal);
+            return {};
+        }
+
+        PACKAGE_ID* packageId = (PACKAGE_ID*)packageIdContent.get();
+
+        return { Utility::ConvertToUTF8(packageId->name), packageId->version.Version };
+    }
+
     GetCertContextResult GetCertContextFromMsix(const std::filesystem::path& msixPath)
     {
         // Retrieve raw signature from msix
@@ -531,6 +559,7 @@ namespace AppInstaller::Msix
     MsixInfo::MsixInfo(std::string_view uriStr)
     {
         m_stream = Utility::GetReadOnlyStreamFromURI(uriStr);
+
         if (GetBundleReader(m_stream.Get(), &m_bundleReader))
         {
             m_isBundle = true;
@@ -596,6 +625,24 @@ namespace AppInstaller::Msix
         return Utility::SHA256::ComputeHash(signature.data(), static_cast<uint32_t>(signature.size()));
     }
 
+    std::wstring MsixInfo::GetDigest()
+    {
+        ComPtr<IAppxDigestProvider> digestProvider;
+        if (m_isBundle)
+        {
+            THROW_IF_FAILED(m_bundleReader.As(&digestProvider));
+        }
+        else
+        {
+            THROW_IF_FAILED(m_packageReader.As(&digestProvider));
+        }
+
+        wil::unique_cotaskmem_string result;
+        THROW_IF_FAILED(digestProvider->GetDigest(&result));
+
+        return result.get();
+    }
+
     std::wstring MsixInfo::GetPackageFullNameWide()
     {
         ComPtr<IAppxManifestPackageId> packageId;
@@ -623,7 +670,7 @@ namespace AppInstaller::Msix
         return Utility::ConvertToUTF8(GetPackageFullNameWide());
     }
 
-    std::vector<ComPtr<IAppxPackageReader>> MsixInfo::GetAppPackages() const
+    std::vector<ComPtr<IAppxPackageReader>> MsixInfo::GetAppPackages(bool includeStub) const
     {
         if (!m_isBundle)
         {
@@ -648,11 +695,19 @@ namespace AppInstaller::Msix
             APPX_BUNDLE_PAYLOAD_PACKAGE_TYPE packageType;
             THROW_IF_FAILED(packageInfo->GetPackageType(&packageType));
 
+            // Check flat bundle case.
             UINT64 offset;
             THROW_IF_FAILED(packageInfo->GetOffset(&offset));
-            const bool isContained = offset != 0;
+            bool isContained = offset != 0;
 
-            if (isContained && packageType == APPX_BUNDLE_PAYLOAD_PACKAGE_TYPE::APPX_BUNDLE_PAYLOAD_PACKAGE_TYPE_APPLICATION)
+            // Check stub package case.
+            ComPtr<IAppxBundleManifestPackageInfo4> packageInfo4;
+            THROW_IF_FAILED(packageInfo.As(&packageInfo4));
+            BOOL isStub = FALSE;
+            THROW_IF_FAILED(packageInfo4->GetIsStub(&isStub));
+
+            if (isContained && (includeStub || !isStub) &&
+                packageType == APPX_BUNDLE_PAYLOAD_PACKAGE_TYPE::APPX_BUNDLE_PAYLOAD_PACKAGE_TYPE_APPLICATION)
             {
                 wil::unique_cotaskmem_string fileName;
                 THROW_IF_FAILED(packageInfo->GetFileName(&fileName));
@@ -680,10 +735,10 @@ namespace AppInstaller::Msix
         return packages;
     }
 
-    std::vector<MsixPackageManifest> MsixInfo::GetAppPackageManifests() const
+    std::vector<MsixPackageManifest> MsixInfo::GetAppPackageManifests(bool includeStub) const
     {
         std::vector<MsixPackageManifest> manifests;
-        auto packages = GetAppPackages();
+        auto packages = GetAppPackages(includeStub);
         for (const auto& package : packages)
         {
             ComPtr<IAppxManifestReader> manifestReader;

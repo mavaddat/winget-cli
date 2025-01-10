@@ -9,6 +9,7 @@
 #include <AppInstallerErrors.h>
 
 using namespace TestCommon;
+using namespace AppInstaller::Http;
 using namespace AppInstaller::Utility;
 using namespace AppInstaller::Manifest;
 using namespace AppInstaller::Repository;
@@ -36,7 +37,6 @@ namespace
     {
         utility::string_t GetSampleManifest_AllFields()
         {
-            utility::string_t id = L"Foo.Bar";
             return _XPLATSTR(
                 R"delimiter(
         {
@@ -362,7 +362,7 @@ TEST_CASE("GetManifests_GoodResponse_V1_4", "[RestSource][Interface_1_4]")
     GoodManifest_AllFields sampleManifest;
     utility::string_t sample = sampleManifest.GetSampleManifest_AllFields();
     HttpClientHelper helper{ GetTestRestRequestHandler(web::http::status_codes::OK, std::move(sample)) };
-    Interface v1_4{ TestRestUriString, {}, {}, std::move(helper) };
+    Interface v1_4{ TestRestUriString, std::move(helper), {} };
     std::vector<Manifest> manifests = v1_4.GetManifests("Foo.Bar");
     REQUIRE(manifests.size() == 1);
 
@@ -372,6 +372,7 @@ TEST_CASE("GetManifests_GoodResponse_V1_4", "[RestSource][Interface_1_4]")
     REQUIRE(manifest.Version == "3.0.0abc");
     REQUIRE(manifest.Moniker == "FooBarMoniker");
     REQUIRE(manifest.Channel == "");
+    REQUIRE(manifest.ManifestVersion == AppInstaller::Manifest::ManifestVer{ "1.4.0" });
     sampleManifest.VerifyLocalizations_AllFields(manifest);
     sampleManifest.VerifyInstallers_AllFields(manifest);
 }
@@ -404,7 +405,7 @@ TEST_CASE("Search_GoodResponse_V1_4", "[RestSource][Interface_1_4]")
         })delimiter");
 
     HttpClientHelper helper{ GetTestRestRequestHandler(web::http::status_codes::OK, std::move(sample)) };
-    Interface v1_4{ TestRestUriString, {}, {}, std::move(helper) };
+    Interface v1_4{ TestRestUriString, std::move(helper), {} };
     Schema::IRestClient::SearchResult searchResponse = v1_4.Search({});
     REQUIRE(searchResponse.Matches.size() == 1);
     Schema::IRestClient::Package package = searchResponse.Matches.at(0);

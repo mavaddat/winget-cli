@@ -20,7 +20,7 @@ namespace AppInstaller::Runtime
         bool DoesCurrentProcessHaveIdentity()
         {
             UINT32 length = 0;
-            LONG result = GetPackageFamilyName(GetCurrentProcess(), &length, nullptr);
+            LONG result = ::GetPackageFamilyName(GetCurrentProcess(), &length, nullptr);
             return (result != APPMODEL_ERROR_NO_PACKAGE);
         }
 
@@ -87,6 +87,30 @@ namespace AppInstaller::Runtime
         return LocIndString{ strstr.str() };
     }
 
+    std::wstring GetPackageFamilyName()
+    {
+        UINT32 length = 0;
+        LONG returnValue = ::GetPackageFamilyName(GetCurrentProcess(), &length, nullptr);
+
+        if (returnValue == APPMODEL_ERROR_NO_PACKAGE)
+        {
+            return {};
+        }
+
+        if (returnValue != ERROR_INSUFFICIENT_BUFFER)
+        {
+            THROW_IF_WIN32_ERROR(returnValue);
+        }
+
+        std::wstring result(length, '\0');
+        returnValue = ::GetPackageFamilyName(GetCurrentProcess(), &length, &result[0]);
+        THROW_IF_WIN32_ERROR(returnValue);
+        THROW_HR_IF(E_UNEXPECTED, length == 0);
+
+        result.resize(length - 1);
+        return result;
+    }
+
     LocIndString GetPackageVersion()
     {
         using namespace std::string_literals;
@@ -115,7 +139,6 @@ namespace AppInstaller::Runtime
         }
     }
 
-#ifndef WINGET_DISABLE_FOR_FUZZING
     LocIndString GetOSVersion()
     {
         winrt::Windows::System::Profile::AnalyticsInfo analyticsInfo{};
@@ -141,7 +164,6 @@ namespace AppInstaller::Runtime
         winrt::Windows::Globalization::GeographicRegion region;
         return Utility::ConvertToUTF8(region.CodeTwoLetter());
     }
-#endif
 
     bool IsCurrentOSVersionGreaterThanOrEqual(const Utility::Version& version)
     {
@@ -187,12 +209,8 @@ namespace AppInstaller::Runtime
         return wil::test_token_membership(nullptr, SECURITY_NT_AUTHORITY, SECURITY_LOCAL_SYSTEM_RID);
     }
 
-    constexpr bool IsReleaseBuild()
+    bool IsRunningAsAdminOrSystem()
     {
-#ifdef WINGET_ENABLE_RELEASE_BUILD
-        return true;
-#else
-        return false;
-#endif
+        return IsRunningAsAdmin() || IsRunningAsSystem();
     }
 }

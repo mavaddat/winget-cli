@@ -5,11 +5,13 @@
 #include <winget/DependenciesGraph.h>
 #include <Workflows/DependencyNodeProcessor.h>
 #include <AppInstallerErrors.h>
+#include <AppInstallerRuntime.h>
 #include <AppInstallerStrings.h>
 #include <Workflows/DependenciesFlow.h>
 #include <Workflows/WorkflowBase.h>
-#include <winget/RepositorySource.h>
 #include <winget/ManifestYamlParser.h>
+#include <winget/PathVariable.h>
+#include <winget/RepositorySource.h>
 #include <Resources.h>
 
 using namespace winrt::Windows::Foundation;
@@ -206,4 +208,67 @@ TEST_CASE("DependencyNodeProcessor_NoMatches", "[dependencies]")
     REQUIRE(dependencyList.Size() == 0);
     REQUIRE(installOutput.str().find(Resource::LocString(Resource::String::DependenciesFlowNoMatches)) != std::string::npos);
     REQUIRE(result == DependencyNodeProcessorResult::Error);
+}
+
+TEST_CASE("DependencyList_Add_MinVersion", "[dependencies]")
+{
+    DependencyType type = DependencyType::Package;
+    std::string identifier = "Identifier";
+
+    DependencyList list;
+    Dependency dependencyWithoutMinVersion{ type, identifier };
+    Dependency dependencyWithLowerMinVersion{ type, identifier, "1.0" };
+    Dependency dependencyWithHigherMinVersion{ type, identifier, "3.0" };
+
+    Dependency dependencyToAdd{ type, identifier, "2.0" };
+
+    SECTION("Existing dependency has no min version, added does")
+    {
+        list.Add(dependencyWithoutMinVersion);
+        list.Add(dependencyToAdd);
+
+        const Dependency* dependency = list.HasDependency(dependencyToAdd);
+        REQUIRE(dependency != nullptr);
+        REQUIRE(dependency->MinVersion.has_value());
+        REQUIRE(dependency->MinVersion == dependencyToAdd.MinVersion);
+    }
+    SECTION("Existing dependency has lower min version")
+    {
+        list.Add(dependencyWithLowerMinVersion);
+        list.Add(dependencyToAdd);
+
+        const Dependency* dependency = list.HasDependency(dependencyToAdd);
+        REQUIRE(dependency != nullptr);
+        REQUIRE(dependency->MinVersion.has_value());
+        REQUIRE(dependency->MinVersion == dependencyToAdd.MinVersion);
+    }
+    SECTION("Existing dependency has higher min version")
+    {
+        list.Add(dependencyWithHigherMinVersion);
+        list.Add(dependencyToAdd);
+
+        const Dependency* dependency = list.HasDependency(dependencyToAdd);
+        REQUIRE(dependency != nullptr);
+        REQUIRE(dependency->MinVersion.has_value());
+        REQUIRE(dependency->MinVersion == dependencyWithHigherMinVersion.MinVersion);
+    }
+    SECTION("Existing dependency has no min version, neither does added")
+    {
+        list.Add(dependencyWithoutMinVersion);
+        list.Add(dependencyWithoutMinVersion);
+
+        const Dependency* dependency = list.HasDependency(dependencyToAdd);
+        REQUIRE(dependency != nullptr);
+        REQUIRE(!dependency->MinVersion.has_value());
+    }
+    SECTION("Existing dependency has min version, added does not")
+    {
+        list.Add(dependencyWithHigherMinVersion);
+        list.Add(dependencyWithoutMinVersion);
+
+        const Dependency* dependency = list.HasDependency(dependencyToAdd);
+        REQUIRE(dependency != nullptr);
+        REQUIRE(dependency->MinVersion.has_value());
+        REQUIRE(dependency->MinVersion == dependencyWithHigherMinVersion.MinVersion);
+    }
 }

@@ -8,24 +8,25 @@ namespace winrt::Microsoft::Management::Configuration::implementation
     struct TestConfigurationUnitResult : TestConfigurationUnitResultT<TestConfigurationUnitResult>
     {
         using ConfigurationUnit = Configuration::ConfigurationUnit;
-        using ConfigurationUnitResultInformation = Configuration::ConfigurationUnitResultInformation;
 
         TestConfigurationUnitResult() = default;
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
-        void Initialize(ConfigurationUnit unit, ConfigurationUnitResultInformation resultInformation);
-        void ResultInformation(const ConfigurationUnitResultInformation& value);
+        void Initialize(const ITestSettingsResult& result);
+
+        void Unit(const ConfigurationUnit& unit);
+        void ResultInformation(const IConfigurationUnitResultInformation& value);
         void TestResult(ConfigurationTestResult value);
 #endif
 
         ConfigurationUnit Unit();
-        ConfigurationUnitResultInformation ResultInformation();
+        IConfigurationUnitResultInformation ResultInformation();
         ConfigurationTestResult TestResult();
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
     private:
         ConfigurationUnit m_unit = nullptr;
-        ConfigurationUnitResultInformation m_resultInformation = nullptr;
+        IConfigurationUnitResultInformation m_resultInformation;
         ConfigurationTestResult m_testResult = ConfigurationTestResult::Unknown;
 #endif
     };

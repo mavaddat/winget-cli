@@ -8,9 +8,9 @@
 #include <winget/Manifest.h>
 #include <winget/PathVariable.h>
 #include <winget/PortableARPEntry.h>
-#include <Microsoft/SQLiteStorageBase.h>
+#include <winget/SQLiteStorageBase.h>
 #include <Microsoft/Schema/IPortableIndex.h>
-#include <Microsoft/PortableIndex.h>
+#include <winget/PortableIndex.h>
 
 using namespace std::string_literals;
 using namespace AppInstaller::CLI::Portable;
@@ -18,7 +18,7 @@ using namespace AppInstaller::Filesystem;
 using namespace AppInstaller::Manifest;
 using namespace AppInstaller::Registry::Environment;
 using namespace AppInstaller::Repository::Microsoft;
-using namespace AppInstaller::Repository::SQLite;
+using namespace AppInstaller::SQLite;
 using namespace AppInstaller::Repository::Microsoft::Schema;
 using namespace AppInstaller::Utility;
 using namespace TestCommon;
@@ -171,4 +171,41 @@ TEST_CASE("PortableInstaller_InstallToIndex_ExistingInstallRoot", "[PortableInst
     REQUIRE_FALSE(AppInstaller::Filesystem::SymlinkExists(symlinkPath));
     REQUIRE_FALSE(AppInstaller::Filesystem::SymlinkExists(symlinkPath2));
     REQUIRE_FALSE(std::filesystem::exists(directoryPath));
+}
+
+TEST_CASE("PortableInstaller_UnicodeSymlinkPath", "[PortableInstaller]")
+{
+    TempDirectory tempDirectory = TestCommon::TempDirectory("TempDirectory", false);
+
+    // Modify install location path to include unicode characters.
+    std::filesystem::path testInstallLocation = tempDirectory.GetPath() / std::filesystem::path{ ConvertToUTF16("романтический") };
+
+    std::vector<PortableFileEntry> desiredTestState;
+
+    TestCommon::TempFile testPortable("testPortable.txt");
+    std::ofstream file(testPortable, std::ofstream::out);
+    file.close();
+
+    std::filesystem::path targetPath = testInstallLocation / "testPortable.txt";
+    std::filesystem::path symlinkPath = tempDirectory.GetPath() / "testSymlink.exe";
+
+    desiredTestState.emplace_back(std::move(PortableFileEntry::CreateFileEntry(testPortable.GetPath(), targetPath, {})));
+    desiredTestState.emplace_back(std::move(PortableFileEntry::CreateSymlinkEntry(symlinkPath, targetPath)));
+
+    PortableInstaller portableInstaller = PortableInstaller(ScopeEnum::User, Architecture::X64, "testProductCode");
+    portableInstaller.TargetInstallLocation = testInstallLocation;
+    portableInstaller.SetDesiredState(desiredTestState);
+    REQUIRE(portableInstaller.VerifyExpectedState());
+
+    portableInstaller.Install();
+
+    PortableInstaller portableInstaller2 = PortableInstaller(ScopeEnum::User, Architecture::X64, "testProductCode");
+    REQUIRE(portableInstaller2.ARPEntryExists());
+    REQUIRE(std::filesystem::exists(portableInstaller2.PortableTargetFullPath));
+    REQUIRE(AppInstaller::Filesystem::SymlinkExists(portableInstaller2.PortableSymlinkFullPath));
+
+    portableInstaller2.Uninstall();
+    REQUIRE_FALSE(std::filesystem::exists(portableInstaller2.PortableTargetFullPath));
+    REQUIRE_FALSE(AppInstaller::Filesystem::SymlinkExists(portableInstaller2.PortableSymlinkFullPath));
+    REQUIRE_FALSE(std::filesystem::exists(portableInstaller2.InstallLocation));
 }
