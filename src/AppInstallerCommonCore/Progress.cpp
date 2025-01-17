@@ -45,9 +45,10 @@ namespace AppInstaller
         }
     };
 
-    bool ProgressCallback::IsCancelled()
+    bool ProgressCallback::IsCancelledBy(CancelReason cancelReasons)
     {
-        return m_cancelled.load();
+        THROW_HR_IF(E_UNEXPECTED, cancelReasons == CancelReason::None);
+        return WI_IsAnyFlagSet(cancelReasons, m_cancelReason);
     }
 
     [[nodiscard]] IProgressCallback::CancelFunctionRemoval ProgressCallback::SetCancellationFunction(std::function<void()>&& f)
@@ -63,9 +64,27 @@ namespace AppInstaller
         }
     }
 
-    void ProgressCallback::Cancel()
+    bool ProgressCallback::Wait(IProgressCallback& progress, std::chrono::milliseconds millisecondsToWait)
     {
-        m_cancelled = true;
+        wil::unique_event calledEvent;
+        calledEvent.create();
+
+        auto cancellationFunc = progress.SetCancellationFunction([&calledEvent]()
+            {
+                calledEvent.SetEvent();
+            });
+
+        if (calledEvent.wait(static_cast<DWORD>(millisecondsToWait.count())))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    void ProgressCallback::Cancel(CancelReason reason)
+    {
+        m_cancelReason = reason;
         if (m_cancellationFunction)
         {
             m_cancellationFunction();

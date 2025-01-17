@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="GetWinGetConfigurationCmdlet.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -7,45 +7,47 @@
 namespace Microsoft.WinGet.Configuration.Cmdlets
 {
     using System.Management.Automation;
-    using System.Threading;
-    using Microsoft.PowerShell;
+    using Microsoft.WinGet.Configuration.Cmdlets.Common;
     using Microsoft.WinGet.Configuration.Engine.Commands;
-    using Microsoft.WinGet.Configuration.Helpers;
 
     /// <summary>
     /// Get-WinGetConfiguration.
     /// Opens a configuration set.
     /// </summary>
-    [Cmdlet(VerbsCommon.Get, "WinGetConfiguration")]
-    public sealed class GetWinGetConfigurationCmdlet : PSCmdlet
+    [Cmdlet(VerbsCommon.Get, "WinGetConfiguration", DefaultParameterSetName = Helpers.Constants.ParameterSet.OpenConfigurationSetFromFile)]
+    [Alias("gwgc")]
+    public sealed class GetWinGetConfigurationCmdlet : OpenConfiguration
     {
-        private ExecutionPolicy executionPolicy = ExecutionPolicy.Undefined;
-
-        /// <summary>
-        /// Gets or sets the configuration file.
-        /// </summary>
-        [Parameter(
-            Mandatory = true,
-            ValueFromPipelineByPropertyName = true)]
-        public string File { get; set; }
-
-        /// <summary>
-        /// Pre-processing operations.
-        /// </summary>
-        protected override void BeginProcessing()
-        {
-            this.executionPolicy = Utilities.GetExecutionPolicy();
-        }
-
         /// <summary>
         /// Opens the configuration set.
         /// </summary>
         protected override void ProcessRecord()
         {
-            CancellationTokenSource source = new ();
+            var configCommand = new ConfigurationCommand(this);
 
-            var configCommand = new ConfigurationCommand(this, source.Token);
-            configCommand.Get(this.File, this.executionPolicy);
+            if (this.ParameterSetName == Helpers.Constants.ParameterSet.OpenConfigurationSetFromFile)
+            {
+                configCommand.Get(
+                    this.File,
+                    this.ModulePath,
+                    this.ExecutionPolicy,
+                    this.CanUseTelemetry);
+            }
+            else if (this.ParameterSetName == Helpers.Constants.ParameterSet.OpenConfigurationSetFromHistory)
+            {
+                configCommand.GetFromHistory(
+                    this.InstanceIdentifier,
+                    this.ModulePath,
+                    this.ExecutionPolicy,
+                    this.CanUseTelemetry);
+            }
+            else if (this.ParameterSetName == Helpers.Constants.ParameterSet.OpenAllConfigurationSetsFromHistory)
+            {
+                configCommand.GetAllFromHistory(
+                    this.ModulePath,
+                    this.ExecutionPolicy,
+                    this.CanUseTelemetry);
+            }
         }
     }
 }

@@ -100,7 +100,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
             return GetPriority(first) < GetPriority(second);
         }
 
-        void ProcessUnitResult(const Configuration::ConfigurationUnit unit, Configuration::ConfigurationUnitResultInformation resultInformation, ConfigRunSummaryData& result)
+        void ProcessUnitResult(const Configuration::ConfigurationUnit unit, const IConfigurationUnitResultInformation& resultInformation, ConfigRunSummaryData& result)
         {
             hresult resultCode = resultInformation.ResultCode();
             if (FAILED(resultCode))
@@ -131,6 +131,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
                 summaryItem = &result.InformSummary;
                 break;
             case ConfigurationUnitIntent::Apply:
+            case ConfigurationUnitIntent::Unknown:
                 summaryItem = &result.ApplySummary;
                 break;
             default:
@@ -215,6 +216,12 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         ConfigurationUnitResultSource failurePoint,
         std::wstring_view settingNames) const noexcept try
     {
+        // Change unknown to Apply for telemetry, as it will have been treated that way
+        if (unitIntent == ConfigurationUnitIntent::Unknown)
+        {
+            unitIntent = ConfigurationUnitIntent::Apply;
+        }
+
         if (IsTelemetryEnabled())
         {
             AICLI_TraceLoggingWriteActivity(
@@ -254,14 +261,14 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         const Configuration::ConfigurationUnit& unit,
         ConfigurationUnitIntent runIntent,
         std::string_view action,
-        const Configuration::ConfigurationUnitResultInformation& resultInformation) const noexcept try
+        const IConfigurationUnitResultInformation& resultInformation) const noexcept try
     {
-        // We only want to send telemetry for failures of publicly available units.
-        if (!IsTelemetryEnabled() || SUCCEEDED(static_cast<int32_t>(resultInformation.ResultCode())))
+        if (!IsTelemetryEnabled())
         {
             return;
         }
 
+        // We only want to send telemetry for publicly available units.
         IConfigurationUnitProcessorDetails details = unit.Details();
         if (!details || !details.IsPublic())
         {
@@ -282,13 +289,13 @@ namespace winrt::Microsoft::Management::Configuration::implementation
             allSettingsNames.pop_back();
         }
 
-        LogConfigUnitRun(setIdentifier, unit.InstanceIdentifier(), unit.UnitName(), details.ModuleName(), unit.Intent(), runIntent, action, resultInformation.ResultCode(), resultInformation.ResultSource(), allSettingsNames);
+        LogConfigUnitRun(setIdentifier, unit.InstanceIdentifier(), unit.Type(), details.ModuleName(), unit.Intent(), runIntent, action, resultInformation.ResultCode(), resultInformation.ResultSource(), allSettingsNames);
     }
     CATCH_LOG();
 
     void TelemetryTraceLogger::LogConfigProcessingSummary(
         const guid& setIdentifier,
-        bool fromHistory,
+        std::string_view inputHash,
         ConfigurationUnitIntent runIntent,
         hresult result,
         ConfigurationUnitResultSource failurePoint,
@@ -301,7 +308,8 @@ namespace winrt::Microsoft::Management::Configuration::implementation
             AICLI_TraceLoggingWriteActivity(
                 "ConfigProcessingSummary",
                 TraceLoggingGuid(setIdentifier, "SetID"),
-                TraceLoggingBool(fromHistory, "FromHistory"),
+                AICLI_TraceLoggingStringView(inputHash, "InputHash"),
+                TraceLoggingBool(false, "FromHistory"), // deprecated
                 TraceLoggingInt32(static_cast<int32_t>(runIntent), "RunIntent"),
                 TraceLoggingHResult(result, "Result"),
                 TraceLoggingInt32(static_cast<int32_t>(failurePoint), "FailurePoint"),
@@ -315,7 +323,8 @@ namespace winrt::Microsoft::Management::Configuration::implementation
             WinGet_WriteEventToDiagnostics(
                 "ConfigProcessingSummary",
                 WinGet_EventItem(setIdentifier, "SetID"),
-                WinGet_EventItem(fromHistory, "FromHistory"),
+                WinGet_EventItem(inputHash, "InputHash"),
+                WinGet_EventItem(false, "FromHistory"), // deprecated
                 WinGet_EventItem(static_cast<int32_t>(runIntent), "RunIntent"),
                 WinGet_EventItem(result, "Result"),
                 WinGet_EventItem(static_cast<int32_t>(failurePoint), "FailurePoint"),
@@ -337,8 +346,25 @@ namespace winrt::Microsoft::Management::Configuration::implementation
 
         ConfigRunSummaryData summaryData = ProcessRunResult(result.UnitResults());
 
-        LogConfigProcessingSummary(configurationSet.InstanceIdentifier(), configurationSet.IsFromHistory(), ConfigurationUnitIntent::Assert,
+        LogConfigProcessingSummary(configurationSet.InstanceIdentifier(), configurationSet.GetInputHash(), ConfigurationUnitIntent::Assert,
             summaryData.Result, summaryData.FailurePoint, summaryData.AssertSummary, summaryData.InformSummary, summaryData.ApplySummary);
+    }
+    CATCH_LOG();
+
+    void TelemetryTraceLogger::LogConfigProcessingSummaryForTestException(
+        const ConfigurationSet& configurationSet,
+        hresult error,
+        const TestConfigurationSetResult& result) const noexcept try
+    {
+        if (!IsTelemetryEnabled())
+        {
+            return;
+        }
+
+        ConfigRunSummaryData summaryData = ProcessRunResult(result.UnitResults());
+
+        LogConfigProcessingSummary(configurationSet.InstanceIdentifier(), configurationSet.GetInputHash(), ConfigurationUnitIntent::Assert,
+            error, ConfigurationUnitResultSource::Internal, summaryData.AssertSummary, summaryData.InformSummary, summaryData.ApplySummary);
     }
     CATCH_LOG();
 
@@ -353,8 +379,25 @@ namespace winrt::Microsoft::Management::Configuration::implementation
 
         ConfigRunSummaryData summaryData = ProcessRunResult(result.UnitResults());
 
-        LogConfigProcessingSummary(configurationSet.InstanceIdentifier(), configurationSet.IsFromHistory(), ConfigurationUnitIntent::Apply,
+        LogConfigProcessingSummary(configurationSet.InstanceIdentifier(), configurationSet.GetInputHash(), ConfigurationUnitIntent::Apply,
             result.ResultCode(), summaryData.FailurePoint, summaryData.AssertSummary, summaryData.InformSummary, summaryData.ApplySummary);
+    }
+    CATCH_LOG();
+
+    void TelemetryTraceLogger::LogConfigProcessingSummaryForApplyException(
+        const ConfigurationSet& configurationSet,
+        hresult error,
+        const ApplyConfigurationSetResult& result) const noexcept try
+    {
+        if (!IsTelemetryEnabled())
+        {
+            return;
+        }
+
+        ConfigRunSummaryData summaryData = ProcessRunResult(result.UnitResults());
+
+        LogConfigProcessingSummary(configurationSet.InstanceIdentifier(), configurationSet.GetInputHash(), ConfigurationUnitIntent::Apply,
+            error, ConfigurationUnitResultSource::Internal, summaryData.AssertSummary, summaryData.InformSummary, summaryData.ApplySummary);
     }
     CATCH_LOG();
 

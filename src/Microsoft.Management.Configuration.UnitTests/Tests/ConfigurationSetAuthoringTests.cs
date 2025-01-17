@@ -8,7 +8,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 {
     using System;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
+    using Microsoft.Management.Configuration.UnitTests.Helpers;
     using Microsoft.VisualBasic;
+    using Windows.Foundation.Collections;
+    using Windows.Storage.Streams;
     using Xunit;
     using Xunit.Abstractions;
 
@@ -16,20 +19,18 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     /// Unit tests for configuration set authoring (creating objects).
     /// </summary>
     [Collection("UnitTestCollection")]
-    public class ConfigurationSetAuthoringTests
+    [InProc]
+    [OutOfProc]
+    public class ConfigurationSetAuthoringTests : ConfigurationProcessorTestBase
     {
-        private readonly UnitTestFixture fixture;
-        private readonly ITestOutputHelper log;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ConfigurationSetAuthoringTests"/> class.
         /// </summary>
         /// <param name="fixture">Unit test fixture.</param>
         /// <param name="log">Log helper.</param>
         public ConfigurationSetAuthoringTests(UnitTestFixture fixture, ITestOutputHelper log)
+            : base(fixture, log)
         {
-            this.fixture = fixture;
-            this.log = log;
         }
 
         /// <summary>
@@ -42,7 +43,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             string testOrigin = "Test Origin";
             string testPath = "TestPath.ext";
 
-            ConfigurationSet testSet = new ConfigurationSet();
+            ConfigurationSet testSet = this.ConfigurationSet();
 
             testSet.Name = testName;
             Assert.Equal(testName, testSet.Name);
@@ -54,9 +55,9 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.NotEqual(Guid.Empty, testSet.InstanceIdentifier);
             Assert.Equal(ConfigurationSetState.Unknown, testSet.State);
 
-            Assert.Empty(testSet.ConfigurationUnits);
-            testSet.ConfigurationUnits = new ConfigurationUnit[] { new ConfigurationUnit() };
-            Assert.Equal(1, testSet.ConfigurationUnits.Count);
+            Assert.Empty(testSet.Units);
+            testSet.Units = new ConfigurationUnit[] { this.ConfigurationUnit() };
+            Assert.Equal(1, testSet.Units.Count);
 
             Assert.NotEqual(string.Empty, testSet.SchemaVersion);
         }
@@ -71,10 +72,9 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             string testIdentifier = "Test Identifier";
             ConfigurationUnitIntent testIntent = ConfigurationUnitIntent.Assert;
 
-            ConfigurationUnit testUnit = new ConfigurationUnit();
-
-            testUnit.UnitName = testName;
-            Assert.Equal(testName, testUnit.UnitName);
+            ConfigurationUnit testUnit = this.ConfigurationUnit();
+            testUnit.Type = testName;
+            Assert.Equal(testName, testUnit.Type);
             testUnit.Identifier = testIdentifier;
             Assert.Equal(testIdentifier, testUnit.Identifier);
 
@@ -88,7 +88,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             testUnit.Dependencies = new string[] { "dependency1", "dependency2" };
             Assert.Equal(2, testUnit.Dependencies.Count);
 
-            Assert.Empty(testUnit.Directives);
+            Assert.Empty(testUnit.Metadata);
             Assert.Empty(testUnit.Settings);
             Assert.Null(testUnit.Details);
 
@@ -96,18 +96,39 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             Assert.Null(testUnit.ResultInformation);
 
-            Assert.True(testUnit.ShouldApply);
-            testUnit.ShouldApply = false;
-            Assert.False(testUnit.ShouldApply);
+            Assert.True(testUnit.IsActive);
+            testUnit.IsActive = false;
+            Assert.False(testUnit.IsActive);
         }
 
         /// <summary>
-        /// This test is to ensure that real tests are added when Serialize is implemented.
+        /// Basic sanity check to verify that nested value sets can be serialized successfully.
         /// </summary>
         [Fact]
-        public void ConfigurationSetSerializeNotImplemented()
+        public void ConfigurationSetSerializeNestedValueSets()
         {
-            Assert.Throws<NotImplementedException>(() => new ConfigurationSet().Serialize(null));
+            ConfigurationSet testSet = this.ConfigurationSet();
+
+            testSet.SchemaVersion = "0.2";
+            ConfigurationUnit testUnit = this.ConfigurationUnit();
+            string testName = "Test Name";
+            string testIdentifier = "Test Identifier";
+            testUnit.Type = testName;
+            testUnit.Identifier = testIdentifier;
+
+            ValueSet innerValueSet = new ValueSet();
+            innerValueSet.Add("innerKey", "innerValue");
+
+            ValueSet outerValueSet = new ValueSet();
+            outerValueSet.Add("outerKey", innerValueSet);
+            testUnit.Metadata = outerValueSet;
+            testSet.Units.Add(testUnit);
+
+            InMemoryRandomAccessStream stream = new InMemoryRandomAccessStream();
+            testSet.Serialize(stream);
+
+            string yamlOutput = this.ReadStream(stream);
+            Assert.NotNull(yamlOutput);
         }
     }
 }

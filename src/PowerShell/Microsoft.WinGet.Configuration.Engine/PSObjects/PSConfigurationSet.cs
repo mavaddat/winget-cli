@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="PSConfigurationSet.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -6,6 +6,7 @@
 
 namespace Microsoft.WinGet.Configuration.Engine.PSObjects
 {
+    using System;
     using Microsoft.Management.Configuration;
 
     /// <summary>
@@ -20,11 +21,11 @@ namespace Microsoft.WinGet.Configuration.Engine.PSObjects
         /// <summary>
         /// Initializes a new instance of the <see cref="PSConfigurationSet"/> class.
         /// </summary>
-        /// <param name="processor">The configuration processor.</param>
+        /// <param name="psProcessor">The configuration processor wrapper.</param>
         /// <param name="set">The configuration set.</param>
-        internal PSConfigurationSet(ConfigurationProcessor processor, ConfigurationSet set)
+        internal PSConfigurationSet(PSConfigurationProcessor psProcessor, ConfigurationSet set)
         {
-            this.Processor = processor;
+            this.PsProcessor = psProcessor;
             this.Set = set;
         }
 
@@ -36,6 +37,17 @@ namespace Microsoft.WinGet.Configuration.Engine.PSObjects
             get
             {
                 return this.Set.Name;
+            }
+        }
+
+        /// <summary>
+        /// Gets the instance identifier.
+        /// </summary>
+        public Guid InstanceIdentifier
+        {
+            get
+            {
+                return this.Set.InstanceIdentifier;
             }
         }
 
@@ -62,17 +74,6 @@ namespace Microsoft.WinGet.Configuration.Engine.PSObjects
         }
 
         /// <summary>
-        /// Gets the state.
-        /// </summary>
-        public string State
-        {
-            get
-            {
-                return this.Set.State.ToString();
-            }
-        }
-
-        /// <summary>
         /// Gets the schema version.
         /// </summary>
         public string SchemaVersion
@@ -84,9 +85,27 @@ namespace Microsoft.WinGet.Configuration.Engine.PSObjects
         }
 
         /// <summary>
-        /// Gets the ConfigurationProcessor.
+        /// Gets the state.
+        /// TODO: enable once implemented.
         /// </summary>
-        internal ConfigurationProcessor Processor { get; private set; }
+        internal string State
+        {
+            get
+            {
+                return this.Set.State.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether apply ran.
+        /// TODO: remove once State is implemented.
+        /// </summary>
+        internal bool ApplyCompleted { get; set; }
+
+        /// <summary>
+        /// Gets the PSConfigurationProcessor.
+        /// </summary>
+        internal PSConfigurationProcessor PsProcessor { get; private set; }
 
         /// <summary>
         /// Gets the ConfigurationSet.

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ConfigurationUnitProcessorTests.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -8,6 +8,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Management.Automation;
     using Microsoft.Management.Configuration;
     using Microsoft.Management.Configuration.Processor.DscResourcesInfo;
@@ -15,6 +16,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     using Microsoft.Management.Configuration.Processor.ProcessorEnvironments;
     using Microsoft.Management.Configuration.Processor.Unit;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
+    using Microsoft.Management.Configuration.UnitTests.Helpers;
     using Microsoft.PowerShell.Commands;
     using Moq;
     using Windows.Foundation.Collections;
@@ -25,6 +27,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     /// Configuration unit processor tests.
     /// </summary>
     [Collection("UnitTestCollection")]
+    [InProc]
     public class ConfigurationUnitProcessorTests
     {
         private readonly UnitTestFixture fixture;
@@ -352,6 +355,44 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.Equal(ConfigurationUnitResultSource.Internal, result.ResultInformation.ResultSource);
         }
 
+        /// <summary>
+        /// Tests ApplySettings in limit mode.
+        /// </summary>
+        [Fact]
+        public void ApplySettings_Test_LimitMode()
+        {
+            string theKey = "key";
+            string theValue = "value";
+            var valueGetResult = new ValueSet
+            {
+                { theKey, theValue },
+            };
+
+            var processorEnvMock = new Mock<IProcessorEnvironment>();
+            processorEnvMock.Setup(m => m.InvokeGetResource(
+                It.IsAny<ValueSet>(),
+                It.IsAny<string>(),
+                It.IsAny<ModuleSpecification?>()))
+                .Returns(valueGetResult)
+                .Verifiable();
+
+            var unitResource = this.CreateUnitResource(ConfigurationUnitIntent.Apply);
+
+            var unitProcessor = new ConfigurationUnitProcessor(processorEnvMock.Object, unitResource, true);
+
+            // GetSettings can be called multiple times.
+            var getResult = unitProcessor.GetSettings();
+            getResult = unitProcessor.GetSettings();
+
+            // TestSettings can be called only once.
+            var testResult = unitProcessor.TestSettings();
+            Assert.Throws<System.InvalidOperationException>(() => unitProcessor.TestSettings());
+
+            // ApplySettings can be called only once.
+            var applyResult = unitProcessor.ApplySettings();
+            Assert.Throws<System.InvalidOperationException>(() => unitProcessor.ApplySettings());
+        }
+
         private ConfigurationUnitAndResource CreateUnitResource(ConfigurationUnitIntent intent)
         {
             string resourceName = "xResourceName";
@@ -359,10 +400,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                 new ConfigurationUnitInternal(
                     new ConfigurationUnit
                     {
-                        UnitName = resourceName,
+                        Type = resourceName,
                         Intent = intent,
                     },
-                    new Dictionary<string, object>()),
+                    string.Empty),
                 new DscResourceInfoInternal(resourceName, null, null));
         }
     }

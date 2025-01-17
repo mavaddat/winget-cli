@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ListCommand.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -7,6 +7,7 @@
 namespace AppInstallerCLIE2ETests
 {
     using System.IO;
+    using AppInstallerCLIE2ETests.Helpers;
     using NUnit.Framework;
 
     /// <summary>
@@ -22,7 +23,8 @@ namespace AppInstallerCLIE2ETests
         {
             var result = TestCommon.RunAICLICommand("list", Constants.AICLIPackageFamilyName);
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
-            Assert.True(result.StdOut.Contains(Constants.AICLIPackageFamilyName));
+            Assert.True(result.StdOut.Contains(Constants.AICLIPackageName));
+            Assert.True(result.StdOut.Contains(Constants.AICLIPackagePublisherHash));
         }
 
         /// <summary>
@@ -84,7 +86,7 @@ namespace AppInstallerCLIE2ETests
             // Installs the MSI installer using the TestMsiInstaller package.
             // Then tries listing the TestMsiInstallerUpgradeCode package, which should
             // be correlated to it by the UpgradeCode.
-            if (string.IsNullOrEmpty(TestCommon.MsiInstallerPath))
+            if (string.IsNullOrEmpty(TestIndex.MsiInstaller))
             {
                 Assert.Ignore("MSI installer not available");
             }
@@ -104,20 +106,21 @@ namespace AppInstallerCLIE2ETests
         public void ListWithScopeExeInstalledAsMachine()
         {
             System.Guid guid = System.Guid.NewGuid();
+            string identifier = "AppInstallerTest.TestExeInstaller";
             string productCode = guid.ToString();
             var installDir = TestCommon.GetRandomTestDir();
-            var result = TestCommon.RunAICLICommand("install", $"AppInstallerTest.TestExeInstaller --override \"/InstallDir {installDir} /ProductID {productCode} /UseHKLM\"");
+            var result = TestCommon.RunAICLICommand("install", $"{identifier} --override \"/InstallDir {installDir} /ProductID {productCode} /UseHKLM\"");
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
 
             // List with user scope will not find the package
             result = TestCommon.RunAICLICommand("list", $"{productCode} --scope user");
             Assert.AreEqual(Constants.ErrorCode.ERROR_NO_APPLICATIONS_FOUND, result.ExitCode);
-            Assert.False(result.StdOut.Contains(productCode));
+            Assert.False(result.StdOut.Contains(identifier));
 
             // List with machine scope will find the package
             result = TestCommon.RunAICLICommand("list", $"{productCode} --scope machine");
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
-            Assert.True(result.StdOut.Contains(productCode));
+            Assert.True(result.StdOut.Contains(identifier));
 
             TestCommon.RunCommand(Path.Combine(installDir, Constants.TestExeUninstallerFileName));
         }
@@ -129,20 +132,21 @@ namespace AppInstallerCLIE2ETests
         public void ListWithScopeExeInstalledAsUser()
         {
             System.Guid guid = System.Guid.NewGuid();
+            string identifier = "AppInstallerTest.TestExeInstaller";
             string productCode = guid.ToString();
             var installDir = TestCommon.GetRandomTestDir();
-            var result = TestCommon.RunAICLICommand("install", $"AppInstallerTest.TestExeInstaller --override \"/InstallDir {installDir} /ProductID {productCode}\"");
+            var result = TestCommon.RunAICLICommand("install", $"{identifier} --override \"/InstallDir {installDir} /ProductID {productCode}\"");
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
 
             // List with user scope will find the package
             result = TestCommon.RunAICLICommand("list", $"{productCode} --scope user");
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
-            Assert.True(result.StdOut.Contains(productCode));
+            Assert.True(result.StdOut.Contains(identifier));
 
             // List with machine scope will not find the package
             result = TestCommon.RunAICLICommand("list", $"{productCode} --scope machine");
             Assert.AreEqual(Constants.ErrorCode.ERROR_NO_APPLICATIONS_FOUND, result.ExitCode);
-            Assert.False(result.StdOut.Contains(productCode));
+            Assert.False(result.StdOut.Contains(identifier));
 
             TestCommon.RunCommand(Path.Combine(installDir, Constants.TestExeUninstallerFileName));
         }

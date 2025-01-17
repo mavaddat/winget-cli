@@ -6,8 +6,8 @@
 #include "Public/AppInstallerRuntime.h"
 #include "Public/AppInstallerSHA256.h"
 #include "Public/AppInstallerStrings.h"
-#include "winget/UserSettings.h"
 #include "Public/winget/ThreadGlobals.h"
+#include "winget/UserSettings.h"
 
 #define AICLI_TraceLoggingStringView(_sv_,_name_) TraceLoggingCountedUtf8String(_sv_.data(), static_cast<ULONG>(_sv_.size()), _name_)
 #define AICLI_TraceLoggingWStringView(_sv_,_name_) TraceLoggingCountedWideString(_sv_.data(), static_cast<ULONG>(_sv_.size()), _name_)
@@ -31,6 +31,7 @@ namespace AppInstaller::Logging
         static const uint32_t s_RootExecutionId = 0;
         static std::atomic_uint32_t s_subExecutionId{ s_RootExecutionId };
 
+        // Data that is needed by AnonymizeString
         constexpr std::wstring_view s_UserProfileReplacement = L"%USERPROFILE%"sv;
 
         // TODO: Temporary code to keep existing telemetry behavior
@@ -121,6 +122,8 @@ namespace AppInstaller::Logging
     {
         if (!m_isInitialized)
         {
+            // Only initialize if we already have the user settings, so that we can respect the telemetry setting.
+            // We may not yet have the user settings if we are trying to report an error while reading them.
             auto userSettings = Settings::TryGetUser();
             if (userSettings)
             {
@@ -201,7 +204,7 @@ namespace AppInstaller::Logging
                 TraceLoggingUInt32(failure.uLineNumber, "Line"),
                 TraceLoggingUInt32(m_executionStage, "ExecutionStage"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -240,7 +243,7 @@ namespace AppInstaller::Logging
                 TraceLoggingCountedString(version->c_str(), static_cast<ULONG>(version->size()), "Version"),
                 TraceLoggingCountedString(packageVersion->c_str(), static_cast<ULONG>(packageVersion->size()), "PackageVersion"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -266,7 +269,7 @@ namespace AppInstaller::Logging
                 "CommandFound",
                 AICLI_TraceLoggingStringView(commandName, "Command"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance | PDT_ProductAndServiceUsage),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -285,7 +288,7 @@ namespace AppInstaller::Logging
                 "CommandSuccess",
                 AICLI_TraceLoggingStringView(commandName, "Command"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -308,7 +311,7 @@ namespace AppInstaller::Logging
                 TraceLoggingUInt64(static_cast<UINT64>(line), "Line"),
                 TraceLoggingUInt32(m_executionStage, "ExecutionStage"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -337,7 +340,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingWStringView(anonMessage, "Message"),
                 TraceLoggingUInt32(m_executionStage, "ExecutionStage"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -358,7 +361,7 @@ namespace AppInstaller::Logging
                 TraceLoggingUInt32(m_subExecutionId, "SubExecutionId"),
                 TraceLoggingBool(isLocalManifest, "IsManifestLocal"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -378,7 +381,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingStringView(name, "Name"),
                 AICLI_TraceLoggingStringView(version, "Version"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -399,7 +402,7 @@ namespace AppInstaller::Logging
                 "NoAppMatch",
                 TraceLoggingUInt32(m_subExecutionId, "SubExecutionId"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
         }
 
         AICLI_LOG(CLI, Info, << "No app found matching input criteria");
@@ -413,7 +416,7 @@ namespace AppInstaller::Logging
                 "MultiAppMatch",
                 TraceLoggingUInt32(m_subExecutionId, "SubExecutionId"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
         }
 
         AICLI_LOG(CLI, Info, << "Multiple apps found matching input criteria");
@@ -429,7 +432,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingStringView(name, "Name"),
                 AICLI_TraceLoggingStringView(id, "Id"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -454,7 +457,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingStringView(scope, "Scope"),
                 AICLI_TraceLoggingStringView(language, "Language"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -466,7 +469,7 @@ namespace AppInstaller::Logging
             }
         }
 
-        AICLI_LOG(CLI, Info, << "Completed installer selection.");
+        AICLI_LOG(CLI, Verbose, << "Completed installer selection.");
         AICLI_LOG(CLI, Verbose, << "Selected installer Architecture: " << arch);
         AICLI_LOG(CLI, Verbose, << "Selected installer URL: " << url);
         AICLI_LOG(CLI, Verbose, << "Selected installer InstallerType: " << installerType);
@@ -500,7 +503,7 @@ namespace AppInstaller::Logging
                 TraceLoggingUInt64(static_cast<UINT64>(maximum), "Maximum"),
                 AICLI_TraceLoggingStringView(request, "Request"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -526,7 +529,7 @@ namespace AppInstaller::Logging
                 TraceLoggingUInt32(m_subExecutionId, "SubExecutionId"),
                 TraceLoggingUInt64(resultCount, "ResultCount"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -543,8 +546,12 @@ namespace AppInstaller::Logging
         std::string_view channel,
         const std::vector<uint8_t>& expected,
         const std::vector<uint8_t>& actual,
-        bool overrideHashMismatch) const noexcept
+        bool overrideHashMismatch,
+        uint64_t downloadSizeInBytes,
+        const std::optional<std::string>& contentType) const noexcept
     {
+        std::string actualContentType = contentType.value_or(std::string{});
+
         if (IsTelemetryEnabled())
         {
             AICLI_TraceLoggingWriteActivity(
@@ -556,8 +563,10 @@ namespace AppInstaller::Logging
                 TraceLoggingBinary(expected.data(), static_cast<ULONG>(expected.size()), "Expected"),
                 TraceLoggingBinary(actual.data(), static_cast<ULONG>(actual.size()), "Actual"),
                 TraceLoggingBool(overrideHashMismatch, "Override"),
+                TraceLoggingUInt64(downloadSizeInBytes, "ActualSize"),
+                AICLI_TraceLoggingStringView(actualContentType, "ContentType"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -567,6 +576,8 @@ namespace AppInstaller::Logging
                 m_summary.HashMismatchExpected = expected;
                 m_summary.HashMismatchActual = actual;
                 m_summary.HashMismatchOverride = overrideHashMismatch;
+                m_summary.HashMismatchActualSize = downloadSizeInBytes;
+                m_summary.HashMismatchContentType = actualContentType;
             }
         }
 
@@ -575,7 +586,7 @@ namespace AppInstaller::Logging
             << Utility::SHA256::ConvertToString(expected)
             << "] does not match download ["
             << Utility::SHA256::ConvertToString(actual)
-            << ']');
+            << "] with file size [" << downloadSizeInBytes << "] and content type [" << actualContentType << "]");
     }
 
     void TelemetryTraceLogger::LogInstallerFailure(std::string_view id, std::string_view version, std::string_view channel, std::string_view type, uint32_t errorCode) const noexcept
@@ -591,7 +602,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingStringView(type, "Type"),
                 TraceLoggingUInt32(errorCode, "ErrorCode"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -618,7 +629,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingStringView(type, "Type"),
                 TraceLoggingUInt32(errorCode, "ErrorCode"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -671,7 +682,7 @@ namespace AppInstaller::Logging
                 AICLI_TraceLoggingStringView(arpPublisher, "ARPPublisher"),
                 TraceLoggingUInt64(static_cast<UINT64>(languageNumber), "ARPLanguage"),
                 TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance | PDT_ProductAndServiceUsage | PDT_SoftwareSetupAndInventory),
-                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_CRITICAL_DATA));
 
             if (m_useSummary)
             {
@@ -720,6 +731,33 @@ namespace AppInstaller::Logging
                 m_summary.DOHResult = hr;
             }
         }
+    }
+
+    void TelemetryTraceLogger::LogRepairFailure(std::string_view id, std::string_view version, std::string_view type, uint32_t errorCode) const noexcept
+    {
+        if (IsTelemetryEnabled())
+        {
+            AICLI_TraceLoggingWriteActivity(
+                "RepairFailure",
+                TraceLoggingUInt32(m_subExecutionId, "SubExecutionId"),
+                AICLI_TraceLoggingStringView(id, "Id"),
+                AICLI_TraceLoggingStringView(version, "Version"),
+                AICLI_TraceLoggingStringView(type, "Type"),
+                TraceLoggingUInt32(errorCode, "ErrorCode"),
+                TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance),
+                TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
+
+            if (m_useSummary)
+            {
+                m_summary.PackageIdentifier = id;
+                m_summary.PackageVersion = version;
+                m_summary.RepairExecutionType = type;
+                m_summary.RepairErrorCode = errorCode;
+            
+            }
+        }
+
+        AICLI_LOG(CLI, Error, << type << " repair failed: " << errorCode);
     }
 
     TelemetryTraceLogger::~TelemetryTraceLogger()
@@ -782,6 +820,8 @@ namespace AppInstaller::Logging
                     TraceLoggingBinary(m_summary.HashMismatchExpected.data(), static_cast<ULONG>(m_summary.HashMismatchExpected.size()), "HashMismatchExpected"),
                     TraceLoggingBinary(m_summary.HashMismatchActual.data(), static_cast<ULONG>(m_summary.HashMismatchActual.size()), "HashMismatchActual"),
                     TraceLoggingBool(m_summary.HashMismatchOverride, "HashMismatchOverride"),
+                    TraceLoggingUInt64(m_summary.HashMismatchActualSize, "HashMismatchActualSize"),
+                    AICLI_TraceLoggingStringView(m_summary.HashMismatchContentType, "HashMismatchContentType"),
                     AICLI_TraceLoggingStringView(m_summary.InstallerExecutionType, "InstallerExecutionType"),
                     TraceLoggingUInt32(m_summary.InstallerErrorCode, "InstallerErrorCode"),
                     AICLI_TraceLoggingStringView(m_summary.UninstallerExecutionType, "UninstallerExecutionType"),
@@ -795,6 +835,8 @@ namespace AppInstaller::Logging
                     AICLI_TraceLoggingStringView(m_summary.ARPPublisher, "ARPPublisher"),
                     AICLI_TraceLoggingStringView(m_summary.DOUrl, "DOUrl"),
                     TraceLoggingHResult(m_summary.DOHResult, "DOHResult"),
+                    AICLI_TraceLoggingStringView(m_summary.RepairExecutionType, "RepairExecutionType"),
+                    TraceLoggingUInt32(m_summary.RepairErrorCode, "RepairErrorCode"),
                     TelemetryPrivacyDataTag(PDT_ProductAndServicePerformance | PDT_ProductAndServiceUsage | PDT_SoftwareSetupAndInventory),
                     TraceLoggingKeyword(MICROSOFT_KEYWORD_MEASURES));
             }
@@ -809,7 +851,6 @@ namespace AppInstaller::Logging
     void TelemetryTraceLogger::InitializeInternal(const AppInstaller::Settings::UserSettings& userSettings)
     {
         m_isSettingEnabled = !userSettings.Get<Settings::Setting::TelemetryDisable>();
-        m_userProfile = Runtime::GetPathTo(Runtime::PathName::UserProfile).wstring();
         m_isInitialized = true;
     }
 
@@ -820,7 +861,11 @@ namespace AppInstaller::Logging
 
     std::wstring TelemetryTraceLogger::AnonymizeString(std::wstring_view input) const noexcept try
     {
-        return Utility::ReplaceWhileCopying(input, m_userProfile, s_UserProfileReplacement);
+        // GetPathTo() may need to read the settings, so this function should only be called after settings are initialized.
+        // To ensure that, this function is only called when emitting an event, and we disable the telemetry until settings are ready.
+        static const std::wstring s_UserProfile = Runtime::GetPathTo(Runtime::PathName::UserProfile).wstring();
+
+        return Utility::ReplaceWhileCopying(input, s_UserProfile, s_UserProfileReplacement);
     }
     catch (...) { return std::wstring{ input }; }
 
@@ -843,6 +888,9 @@ namespace AppInstaller::Logging
         }
         else
         {
+            // For the global telemetry object, we may not have yet read the settings file.
+            // In that case, we will not be able to initialize it, so we need to try it
+            // each time we get the object.
             static TelemetryTraceLogger processGlobalTelemetry(/* useSummary */ false);
             processGlobalTelemetry.TryInitialize();
             return processGlobalTelemetry;

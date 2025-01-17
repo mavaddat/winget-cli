@@ -1,21 +1,37 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0-windows10.0.19041</TargetFramework>
+    <!-- Keep in sync with attributes in AssemblyInfo.cs -->
+    <TargetFramework>net8.0-windows10.0.22000</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <OutputPath>$(SolutionDir)$(Platform)\$(Configuration)\$(MSBuildProjectName)\</OutputPath>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DocumentationFile>$(OutputPath)\$(MSBuildProjectName).xml</DocumentationFile>
     <RuntimeIdentifier>win</RuntimeIdentifier>
     <BuildOutputDirectory>$(SolutionDir)$(Platform)\$(Configuration)\</BuildOutputDirectory>
     <RootNamespace>Microsoft.WinGet.Configuration</RootNamespace>
+    <Configurations>Debug;Release;ReleaseStatic</Configurations>
+    <CsWinRTCcwLookupTableGeneratorEnabled>false</CsWinRTCcwLookupTableGeneratorEnabled>
+    <!--
+    !!! Remove or update this on the next Microsoft.Windows.CsWinRT package version update. !!!
+    -->
+    <WindowsSdkPackageVersion>10.0.22000.53</WindowsSdkPackageVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)'=='ReleaseStatic'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
   <ItemGroup>
     <AdditionalFiles Include="..\..\stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\CommonFiles\WinGetAssemblyLoadContext.cs" Link="WinGetAssemblyLoadContext.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,7 +48,7 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.0.1" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.1.6" />
   </ItemGroup>
 
   <ItemGroup>
@@ -81,45 +97,10 @@
       <ModuleSharedDependency Include="$(OutputPath)Microsoft.Management.Configuration.Processor.dll" />
       <ModuleSharedDependency Include="$(OutputPath)Microsoft.Windows.SDK.NET.dll" />
       <ModuleSharedDependency Include="$(OutputPath)WinRT.Runtime.dll" />
+      <ModuleSharedDependency Include="$(OutputPath)Microsoft.WinGet.SharedLib.dll" />
     </ItemGroup>
     <Message Importance="high" Text="Copying shared dependencies: '@(ModuleSharedDependency)'" />
     <Copy SourceFiles="@(ModuleSharedDependency)" DestinationFolder="$(PowerShellModuleSharedDependencies)" />
-  </Target>
-
-  <!-- Since this is Any CPU we will have to probe for arch specific binaries -->
-  <!-- This gets defined before the target framework and the rid gets appended to the OutputPath -->
-  <PropertyGroup>
-    <Configx64Path>$(OutputPath)..\..\..\x64\$(Configuration)\Microsoft.Management.Configuration\</Configx64Path>
-    <Configx86Path>$(OutputPath)..\..\..\x86\$(Configuration)\Microsoft.Management.Configuration\</Configx86Path>
-    <ConfigArm64Path>$(OutputPath)..\..\..\ARM64\$(Configuration)\Microsoft.Management.Configuration\</ConfigArm64Path>
-  </PropertyGroup>
-
-  <!-- The projection dll is Any CPU, but WinRT.Runtime.dll expects file to be in the same location as the native dll -->
-  <Target Name="CopyConfigx64" AfterTargets="AfterBuild" Condition="Exists('$(Configx64Path)Microsoft.Management.Configuration.dll')">
-    <ItemGroup>
-      <Configx64File Include="$(OutputPath)\Microsoft.Management.Configuration.Projection.dll" />
-      <Configx64File Include="$(Configx64Path)\Microsoft.Management.Configuration.dll" />
-    </ItemGroup>
-    <Message Importance="high" Text="Copying x64 '@(Configx64File)'" />
-    <Copy SourceFiles="@(Configx64File)" DestinationFolder="$(PowerShellModuleSharedDependencies)\x64" />
-  </Target>
-
-  <Target Name="CopyConfigx86" AfterTargets="AfterBuild" Condition="Exists('$(Configx86Path)Microsoft.Management.Configuration.dll')">
-    <ItemGroup>
-      <Configx86File Include="$(OutputPath)\Microsoft.Management.Configuration.Projection.dll" />
-      <Configx86File Include="$(Configx86Path)\Microsoft.Management.Configuration.dll" />
-    </ItemGroup>
-    <Message Importance="high" Text="Copying x86 '@(Configx86File)'" />
-    <Copy SourceFiles="@(Configx86File)" DestinationFolder="$(PowerShellModuleSharedDependencies)\x86" />
-  </Target>
-
-  <Target Name="CopyConfigArm64" AfterTargets="AfterBuild" Condition="Exists('$(ConfigArm64Path)Microsoft.Management.Configuration.dll')">
-    <ItemGroup>
-      <ConfigArm64File Include="$(OutputPath)\Microsoft.Management.Configuration.Projection.dll" />
-      <ConfigArm64File Include="$(ConfigArm64Path)\Microsoft.Management.Configuration.dll" />
-    </ItemGroup>
-    <Message Importance="high" Text="Copying arm64 '@(ConfigArm64File)'" />
-    <Copy SourceFiles="@(ConfigArm64File)" DestinationFolder="$(PowerShellModuleSharedDependencies)\arm64" />
   </Target>
 
 </Project>

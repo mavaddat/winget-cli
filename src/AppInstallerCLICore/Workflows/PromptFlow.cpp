@@ -5,6 +5,7 @@
 #include "ShowFlow.h"
 #include <winget/UserSettings.h>
 
+using namespace AppInstaller::CLI::Execution;
 using namespace AppInstaller::Settings;
 using namespace AppInstaller::Utility::literals;
 
@@ -163,7 +164,7 @@ namespace AppInstaller::CLI::Workflow
                     }
                 }
 
-                EnsurePackageAgreementsAcceptance(context, /* showPrompt */ false);
+                EnsurePackageAgreementsAcceptance(context, /* showPrompt */ true);
             }
 
         private:
@@ -178,7 +179,7 @@ namespace AppInstaller::CLI::Workflow
                     return;
                 }
 
-                context << Workflow::ReportManifestIdentityWithVersion(Resource::String::ReportIdentityForAgreements) << Workflow::ShowPackageInfo;
+                context << Workflow::ReportManifestIdentityWithVersion(Resource::String::ReportIdentityForAgreements) << Workflow::ShowAgreementsInfo;
                 context.Reporter.EmptyLine();
             }
 
@@ -295,6 +296,12 @@ namespace AppInstaller::CLI::Workflow
 
                 AICLI_LOG(CLI, Info, << "Prompting for install root.");
                 m_installLocation = context.Reporter.PromptForPath(Resource::String::PromptForInstallRoot);
+                if (m_installLocation.empty())
+                {
+                    AICLI_LOG(CLI, Error, << "Install location is required but the provided path was empty.");
+                    context.Reporter.Error() << Resource::String::InstallLocationNotProvided << std::endl;
+                    AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_INSTALL_LOCATION_REQUIRED);
+                }
                 AICLI_LOG(CLI, Info, << "Proceeding with installation using install root: " << m_installLocation);
             }
 
@@ -354,7 +361,7 @@ namespace AppInstaller::CLI::Workflow
                     return;
                 }
 
-                bool accepted = context.Reporter.PromptForBoolResponse(Resource::String::PromptToProceed, Execution::Reporter::Level::Warning);
+                bool accepted = context.Reporter.PromptForBoolResponse(Resource::String::PromptToProceed, Reporter::Level::Warning, true);
                 if (accepted)
                 {
                     AICLI_LOG(CLI, Info, << "Proceeding with installation");
@@ -369,12 +376,21 @@ namespace AppInstaller::CLI::Workflow
         };
 
         // Gets all the prompts that may be displayed, in order of appearance
-        std::vector<std::unique_ptr<PackagePrompt>> GetPackagePrompts(bool ensureAgreementsAcceptance  = true)
+        std::vector<std::unique_ptr<PackagePrompt>> GetPackagePrompts(bool ensureAgreementsAcceptance = true, bool installerDownloadOnly = false)
         {
             std::vector<std::unique_ptr<PackagePrompt>> result;
-            result.push_back(std::make_unique<PackageAgreementsPrompt>(ensureAgreementsAcceptance));
-            result.push_back(std::make_unique<InstallRootPrompt>());
-            result.push_back(std::make_unique<InstallerAbortsTerminalPrompt>());
+
+            if (installerDownloadOnly)
+            {
+                result.push_back(std::make_unique<PackageAgreementsPrompt>(ensureAgreementsAcceptance));
+            }
+            else
+            {
+                result.push_back(std::make_unique<PackageAgreementsPrompt>(ensureAgreementsAcceptance));
+                result.push_back(std::make_unique<InstallRootPrompt>());
+                result.push_back(std::make_unique<InstallerAbortsTerminalPrompt>());
+            }
+
             return result;
         }
     }
@@ -407,7 +423,9 @@ namespace AppInstaller::CLI::Workflow
 
     void ShowPromptsForSinglePackage::operator()(Execution::Context& context) const
     {
-        for (auto& prompt : GetPackagePrompts())
+        bool installerDownloadOnly = WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerDownloadOnly);
+
+        for (auto& prompt : GetPackagePrompts(true, installerDownloadOnly))
         {
             // Show the prompt if needed
             if (prompt->PackageNeedsPrompt(context))
@@ -424,7 +442,7 @@ namespace AppInstaller::CLI::Workflow
 
     void ShowPromptsForMultiplePackages::operator()(Execution::Context& context) const
     {
-        for (auto& prompt : GetPackagePrompts(m_ensureAgreementsAcceptance))
+        for (auto& prompt : GetPackagePrompts(m_ensureAgreementsAcceptance, m_installerDownloadOnly))
         {
             // Find which packages need this prompt
             std::vector<Execution::Context*> packagesToPrompt;

@@ -6,8 +6,8 @@
 
 namespace Microsoft.WinGet.Configuration.Cmdlets
 {
+    using System;
     using System.Management.Automation;
-    using System.Threading;
     using Microsoft.WinGet.Configuration.Engine.Commands;
     using Microsoft.WinGet.Configuration.Engine.PSObjects;
 
@@ -17,12 +17,17 @@ namespace Microsoft.WinGet.Configuration.Cmdlets
     /// Wait for completion.
     /// </summary>
     [Cmdlet(VerbsLifecycle.Invoke, "WinGetConfiguration")]
+    [Alias("iwgc")]
     public sealed class InvokeWinGetConfigurationCmdlet : PSCmdlet
     {
+        private bool acceptedAgreements = false;
+        private ConfigurationCommand runningCommand = null;
+
         /// <summary>
         /// Gets or sets the configuration set.
         /// </summary>
         [Parameter(
+            Position = 0,
             Mandatory = true,
             ValueFromPipeline = true,
             ValueFromPipelineByPropertyName = true)]
@@ -31,6 +36,7 @@ namespace Microsoft.WinGet.Configuration.Cmdlets
         /// <summary>
         /// Gets or sets a value indicating whether to accept the configuration agreements.
         /// </summary>
+        [Parameter(ValueFromPipelineByPropertyName = true)]
         public SwitchParameter AcceptConfigurationAgreements { get; set; }
 
         /// <summary>
@@ -38,7 +44,7 @@ namespace Microsoft.WinGet.Configuration.Cmdlets
         /// </summary>
         protected override void BeginProcessing()
         {
-            // TODO: if not agrementsAccepted print message with ShouldContinue.
+            this.acceptedAgreements = ConfigurationCommand.ConfirmConfigurationProcessing(this, this.AcceptConfigurationAgreements.ToBool(), true);
         }
 
         /// <summary>
@@ -46,10 +52,22 @@ namespace Microsoft.WinGet.Configuration.Cmdlets
         /// </summary>
         protected override void ProcessRecord()
         {
-            CancellationTokenSource source = new ();
+            if (this.acceptedAgreements)
+            {
+                this.runningCommand = new ConfigurationCommand(this);
+                this.runningCommand.Apply(this.Set);
+            }
+        }
 
-            var configCommand = new ConfigurationCommand(this, source.Token, false);
-            configCommand.Apply(this.Set);
+        /// <summary>
+        /// Interrupts currently running code within the command.
+        /// </summary>
+        protected override void StopProcessing()
+        {
+            if (this.runningCommand != null)
+            {
+                this.runningCommand.Cancel();
+            }
         }
     }
 }

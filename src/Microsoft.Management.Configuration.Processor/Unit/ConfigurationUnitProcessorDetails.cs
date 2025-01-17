@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ConfigurationUnitProcessorDetails.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -18,7 +18,7 @@ namespace Microsoft.Management.Configuration.Processor.Unit
     /// <summary>
     /// Provides information for a specific configuration unit within the runtime.
     /// </summary>
-    internal sealed class ConfigurationUnitProcessorDetails : IConfigurationUnitProcessorDetails
+    internal sealed partial class ConfigurationUnitProcessorDetails : IConfigurationUnitProcessorDetails
     {
         private static readonly IEnumerable<string> PublicRepositories = new string[]
         {
@@ -47,7 +47,7 @@ namespace Microsoft.Management.Configuration.Processor.Unit
                 throw new ArgumentException();
             }
 
-            this.UnitName = unitName;
+            this.UnitType = unitName;
 
             if (dscResourceInfo is not null)
             {
@@ -114,7 +114,7 @@ namespace Microsoft.Management.Configuration.Processor.Unit
         /// <summary>
         /// Gets the name of the unit of configuration.
         /// </summary>
-        public string UnitName { get; private set; }
+        public string UnitType { get; private set; }
 
         /// <summary>
         /// Gets the description of the unit of configuration.
@@ -246,7 +246,18 @@ namespace Microsoft.Management.Configuration.Processor.Unit
                 var moduleProperty = getModuleInfo.Properties[getModuleInfoProperty];
                 if (moduleProperty is not null)
                 {
-                    propertyInfo.SetValue(this, new DateTimeOffset((DateTime)moduleProperty.Value));
+                    DateTime propertyAsDateTime;
+
+                    try
+                    {
+                        propertyAsDateTime = (DateTime)moduleProperty.Value;
+                    }
+                    catch
+                    {
+                        return;
+                    }
+
+                    propertyInfo.SetValue(this, new DateTimeOffset(propertyAsDateTime));
                 }
             }
         }

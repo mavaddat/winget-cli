@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!-- 
     Microsoft ResX Schema 
@@ -155,8 +155,8 @@
     <value>Unable to execute winget command.</value>
   </data>
   <data name="WinGetCLIExceptionMessage" xml:space="preserve">
-    <value>Command {0} failed with exit code {1}</value>
-    <comment>{Locked="{0}","{1}"} {0} - The winget command executed. {1} - The exit code.</comment>
+    <value>Winget command '{0}' with parameters '{1}' failed with exit code '{2}'.</value>
+    <comment>{Locked="{0}","{1}","{2}"} {0} - The winget command executed. {1} - The parameters of the command. {2} - The exit code.</comment>
   </data>
   <data name="UserSettingsReadException" xml:space="preserve">
     <value>User settings file is invalid.</value>
@@ -180,21 +180,14 @@
     <value>The Windows Package Manager requires Windows Version 1809 (October 2018 Update) or later.</value>
   </data>
   <data name="WinGetCLITimeoutExceptionMessage" xml:space="preserve">
-    <value>Winget command run timed out: {0} {1}</value>
+    <value>Winget command timed out: {0} {1}</value>
     <comment>{Locked="{0}","{1}"} {0} - The winget command executed. {1} - The parameters of the command.</comment>
   </data>
   <data name="IntegrityAppInstallerNotRegisteredMessage" xml:space="preserve">
     <value>The App Installer is not registered.</value>
   </data>
-  <data name="AppExecutionAliasDisabledHelpMessage" xml:space="preserve">
+  <data name="RepairAppExecutionAliasMessage" xml:space="preserve">
     <value>The App Execution Alias for the Windows Package Manager is disabled. You should enable the App Execution Alias for the Windows Package Manager. Go to App execution aliases option in Apps &amp; features Settings to enable it.</value>
-  </data>
-  <data name="MicrosoftUIXaml27Message" xml:space="preserve">
-    <value>Microsoft.UI.Xaml.2.7 package is not installed</value>
-    <comment>{Locked="Microsoft.UI.Xaml.2.7"}</comment>
-  </data>
-  <data name="WinGetNotSupportedMessage" xml:space="preserve">
-    <value>Windows Package Manager not supported.</value>
   </data>
   <data name="IntegrityUnexpectedVersionMessage" xml:space="preserve">
     <value>The installed winget version doesn't match the expectation. Installer version '{0}' Expected version '{1}'</value>
@@ -203,5 +196,72 @@
   <data name="SingleThreadedApartmentNotSupportedMessage" xml:space="preserve">
     <value>Single threaded apartment (STA) is not currently supported in this context; run PowerShell in Multi-threaded apartment mode (MTA).</value>
     <comment>{Locked="STA","MTA"}</comment>
+  </data>
+  <data name="WindowsPowerShellNotSupported" xml:space="preserve">
+    <value>This cmdlet is not supported in Windows PowerShell.</value>
+  </data>
+  <data name="IntegrityAppInstallerLicense" xml:space="preserve">
+    <value>No applicable license found.</value>
+  </data>
+  <data name="RepairAllUsersHelpMessage" xml:space="preserve">
+    <value>Try running with -AllUsers in administrator mode.</value>
+    <comment>{Locked="-AllUsers"}</comment>
+  </data>
+  <data name="RepairAllUsersMessage" xml:space="preserve">
+    <value>-AllUsers requires administrator mode.</value>
+    <comment>{Locked="-AllUsers"}</comment>
+  </data>
+  <data name="RepairFailureMessage" xml:space="preserve">
+    <value>Failed to repair winget.</value>
+  </data>
+  <data name="RequiresAdminMessage" xml:space="preserve">
+    <value>This cmdlet requires administrator privileges to execute.</value>
+  </data>
+  <data name="DebugNotSupported" xml:space="preserve">
+    <value>Debug parameter not supported</value>
+  </data>
+  <data name="DownloadingMessage" xml:space="preserve">
+    <value>Downloading</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Uninstalling</value>
+  </data>
+  <data name="ReleaseAssetNotFound" xml:space="preserve">
+    <value>Cannot find asset {0}</value>
+    <comment>{Locked="{0}"} {0} - The asset name</comment>
+  </data>
+  <data name="ProgressRecordActivityExporting" xml:space="preserve">
+    <value>Exporting '{0}'</value>
+    <comment>{Locked="{0}"} {0} - The name of the package being exported.</comment>
+  </data>
+  <data name="ProgressRecordActivityRepairing" xml:space="preserve">
+    <value>Repairing '{0}'</value>
+    <comment>{Locked="{0}"} {0} - The name of the package being repaired.</comment>
+  </data>
+  <data name="Repairing" xml:space="preserve">
+    <value>Repairing</value>
+  </data>
+  <data name="NoRepairInfoFound" xml:space="preserve">
+    <value>The repair command for this package is not available in the Package Manifest. Please reach out to the package publisher for assistance.</value>
+  </data>
+  <data name="RepairDifferentInstallTechnology" xml:space="preserve">
+    <value>The installer technology in use does not match the version currently installed.</value>
+  </data>
+  <data name="RepairerFailure" xml:space="preserve">
+    <value>The repair operation was unsuccessful, exiting with Repairer error code: {0}.</value>
+     <comment>{Locked="{0}"} {0} - The error code of the repairer.</comment>
+  </data>
+  <data name="RepairOperationNotSupported" xml:space="preserve">
+    <value>The current installer technology does not support repair. Please reach out to the package vendor for assistance.</value>
+  </data>
+  <data name="NoAdminRepairForUserScopePackage" xml:space="preserve">
+    <value>Repair operations involving administrator privileges are not permitted on packages installed within the user scope.</value>
+  </data>
+  <data name="UnknownRepairFailure" xml:space="preserve">
+    <value>An unexpected error happened while trying to repair the package. Error code:{0}</value>
+    <comment>{Locked="{0}"} {0} - The error code from the repair operation.</comment>
   </data>
 </root>

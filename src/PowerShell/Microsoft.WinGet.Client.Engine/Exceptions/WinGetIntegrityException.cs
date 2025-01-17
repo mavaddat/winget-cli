@@ -9,7 +9,7 @@ namespace Microsoft.WinGet.Client.Engine.Exceptions
     using System;
     using System.Management.Automation;
     using Microsoft.WinGet.Client.Engine.Common;
-    using Microsoft.WinGet.Client.Engine.Properties;
+    using Microsoft.WinGet.Resources;
 
     /// <summary>
     /// WinGet Integrity exception.
@@ -62,6 +62,7 @@ namespace Microsoft.WinGet.Client.Engine.Exceptions
             IntegrityCategory.AppInstallerNotInstalled => Resources.IntegrityAppInstallerNotInstalledMessage,
             IntegrityCategory.AppInstallerNotRegistered => Resources.IntegrityAppInstallerNotRegisteredMessage,
             IntegrityCategory.AppInstallerNotSupported => Resources.IntegrityAppInstallerNotSupportedMessage,
+            IntegrityCategory.AppInstallerNoLicense => Resources.IntegrityAppInstallerLicense,
             _ => Resources.IntegrityUnknownMessage,
         };
     }

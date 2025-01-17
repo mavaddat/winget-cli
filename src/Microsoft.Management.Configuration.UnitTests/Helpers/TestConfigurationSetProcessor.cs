@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="TestConfigurationSetProcessor.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -12,17 +12,15 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
     /// <summary>
     /// A test implementation of IConfigurationSetProcessor.
     /// </summary>
-    internal class TestConfigurationSetProcessor : IConfigurationSetProcessor
+    internal partial class TestConfigurationSetProcessor : IConfigurationSetProcessor
     {
-        private ConfigurationSet? set;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="TestConfigurationSetProcessor"/> class.
         /// </summary>
         /// <param name="set">The set that this processor is for.</param>
         internal TestConfigurationSetProcessor(ConfigurationSet? set)
         {
-            this.set = set;
+            this.Set = set;
         }
 
         /// <summary>
@@ -44,12 +42,21 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
             new Dictionary<ConfigurationUnit, Exception>();
 
         /// <summary>
+        /// Gets or sets a value indicating whether the default unit processors for groups will enable group processing.
+        /// </summary>
+        internal bool EnableDefaultGroupProcessorCreation { get; set; } = false;
+
+        /// <summary>
+        /// Gets the ConfigurationSet that this processor targets.
+        /// </summary>
+        protected ConfigurationSet? Set { get; private set; }
+
+        /// <summary>
         /// Creates a new unit processor for the given unit.
         /// </summary>
         /// <param name="unit">The unit.</param>
-        /// <param name="directivesOverlay">Directives to override those in the unit.</param>
         /// <returns>The configuration unit processor.</returns>
-        public IConfigurationUnitProcessor CreateUnitProcessor(ConfigurationUnit unit, IReadOnlyDictionary<string, object> directivesOverlay)
+        public IConfigurationUnitProcessor CreateUnitProcessor(ConfigurationUnit unit)
         {
             if (this.Exceptions.ContainsKey(unit))
             {
@@ -58,7 +65,14 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
 
             if (!this.Processors.ContainsKey(unit))
             {
-                this.Processors.Add(unit, new TestConfigurationUnitProcessor(unit, directivesOverlay));
+                if (this.EnableDefaultGroupProcessorCreation && unit.IsGroup)
+                {
+                    this.Processors.Add(unit, new TestConfigurationUnitGroupProcessor(unit));
+                }
+                else
+                {
+                    this.Processors.Add(unit, new TestConfigurationUnitProcessor(unit));
+                }
             }
 
             return this.Processors[unit];
@@ -68,9 +82,9 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
         /// Gets the unit processor details for the given unit.
         /// </summary>
         /// <param name="unit">The unit.</param>
-        /// <param name="detailLevel">The detail level requested.</param>
+        /// <param name="detailFlags">The detail flags.</param>
         /// <returns>The details requested.</returns>
-        public IConfigurationUnitProcessorDetails GetUnitProcessorDetails(ConfigurationUnit unit, ConfigurationUnitDetailLevel detailLevel)
+        public IConfigurationUnitProcessorDetails GetUnitProcessorDetails(ConfigurationUnit unit, ConfigurationUnitDetailFlags detailFlags)
         {
             if (this.Exceptions.ContainsKey(unit))
             {
@@ -79,7 +93,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
 
             if (!this.Details.ContainsKey(unit))
             {
-                this.Details.Add(unit, new TestConfigurationUnitProcessorDetails(unit, detailLevel));
+                this.Details.Add(unit, new TestConfigurationUnitProcessorDetails(unit, detailFlags));
             }
 
             return this.Details[unit];
@@ -97,14 +111,38 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
         }
 
         /// <summary>
+        /// Creates a new test group processor for the given unit.
+        /// </summary>
+        /// <param name="unit">The unit.</param>
+        /// <returns>A new TestConfigurationUnitGroupProcessor for the unit.</returns>
+        internal TestConfigurationUnitGroupProcessor CreateTestGroupProcessor(ConfigurationUnit unit)
+        {
+            TestConfigurationUnitGroupProcessor result = new (unit);
+            this.Processors[unit] = result;
+            return result;
+        }
+
+        /// <summary>
+        /// Creates a new test processor that supports GetAllSettings for the given unit.
+        /// </summary>
+        /// <param name="unit">The unit.</param>
+        /// <returns>The configuration unit processor.</returns>
+        internal TestGetAllSettingsConfigurationUnitProcessor CreateGetAllSettingsTestProcessor(ConfigurationUnit unit)
+        {
+            var processor = new TestGetAllSettingsConfigurationUnitProcessor(unit);
+            this.Processors[unit] = processor;
+            return processor;
+        }
+
+        /// <summary>
         /// Creates a new unit processor details for the given unit.
         /// </summary>
         /// <param name="unit">The unit.</param>
-        /// <param name="detailLevel">The detail level requested.</param>
+        /// <param name="detailFlags">The detail flags.</param>
         /// <returns>The details requested.</returns>
-        internal TestConfigurationUnitProcessorDetails CreateUnitDetails(ConfigurationUnit unit, ConfigurationUnitDetailLevel detailLevel)
+        internal TestConfigurationUnitProcessorDetails CreateUnitDetails(ConfigurationUnit unit, ConfigurationUnitDetailFlags detailFlags)
         {
-            this.Details[unit] = new TestConfigurationUnitProcessorDetails(unit, detailLevel);
+            this.Details[unit] = new TestConfigurationUnitProcessorDetails(unit, detailFlags);
             return this.Details[unit];
         }
     }

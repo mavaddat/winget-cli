@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="Constants.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -33,6 +33,16 @@ namespace Microsoft.WinGet.Client.Common
         public const string FoundSet = "FoundSet";
 
         /// <summary>
+        /// This parameter set indicates the default parameters associated with a cmdlet.
+        /// </summary>
+        public const string DefaultSet = "DefaultSet";
+
+        /// <summary>
+        ///  This parameter set indicates the optional parameters associated with a cmdlet.
+        /// </summary>
+        public const string OptionalSet = "OptionalSet";
+
+        /// <summary>
         /// Parameter set for an specific version parameter.
         /// </summary>
         public const string IntegrityVersionSet = "IntegrityVersionSet";
@@ -65,12 +75,17 @@ namespace Microsoft.WinGet.Client.Common
             /// <summary>
             /// The noun for any user settings cmdlet.
             /// </summary>
-            public const string UserSettings = "WinGetUserSettings";
+            public const string UserSetting = "WinGetUserSetting";
 
             /// <summary>
             /// The noun for winget version.
             /// </summary>
             public const string Version = "WinGetVersion";
+
+            /// <summary>
+            /// The noun for enable/disable winget admin settings.
+            /// </summary>
+            public const string Setting = "WinGetSetting";
         }
     }
 }

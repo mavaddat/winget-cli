@@ -16,6 +16,7 @@ namespace Microsoft.WinGet.Client.Commands
     /// Searches configured sources for packages.
     /// </summary>
     [Cmdlet(VerbsCommon.Get, Constants.WinGetNouns.Package)]
+    [Alias("gwgp")]
     [OutputType(typeof(PSInstalledCatalogPackage))]
     public sealed class GetPackageCmdlet : FinderExtendedCmdlet
     {
@@ -31,12 +32,11 @@ namespace Microsoft.WinGet.Client.Commands
                 this.Moniker,
                 this.Source,
                 this.Query,
-                this.MatchOption.ToString(),
                 this.Tag,
                 this.Command,
                 this.Count);
 
-            command.Get();
+            command.Get(this.MatchOption.ToString());
         }
     }
 }

@@ -58,15 +58,21 @@ namespace AppInstaller::CLI
         // Arguments for installer or uninstaller behavior, which do not work for multiple packages.
         // E.g.: --override
         SingleInstallerBehavior = 0x20,
-        // Arguments for selecting or interacting with the source.
-        // E.g.: --accept-source-agreements
-        Source = 0x40,
+        // Arguments for selecting or interacting with the source used for initial querying
+        // E.g.: --header
+        QuerySource = 0x40,
         // Arguments that only make sense when talking about multiple packages
         MultiplePackages = 0x80,
         // Flag arguments that should be copied over when creating a sub-context
         CopyFlagToSubContext = 0x100,
         // Arguments with associated values that should be copied over when creating a sub-context
         CopyValueToSubContext = 0x200,
+        // Arguments for selecting or interacting with dependencies or setting specific source behaviors
+        // E.g.: --dependency-source
+        // E.g.: --accept-source-agreements
+        ExtendedSource = 0x400,
+        // Arguments for selecting a configuration set (file or history).
+        ConfigurationSetChoice = 0x800,
     };
 
     DEFINE_ENUM_FLAG_OPERATORS(ArgTypeCategory);
@@ -80,6 +86,10 @@ namespace AppInstaller::CLI
         EnableDisable = 0x2,
         PurgePreserve = 0x4,
         PinType = 0x8,
+        StubType = 0x10,
+        Proxy = 0x20,
+        AllAndTargetVersion = 0x40,
+        ConfigurationSetChoice = 0x80,
 
         // This must always be at the end
         Max
@@ -182,6 +192,9 @@ namespace AppInstaller::CLI
         // Requires that at most one argument from the list is present.
         static void ValidateExclusiveArguments(const Execution::Args& args);
 
+        // Requires that if an argument depends on another one, it is not present without the dependency.
+        static void ValidateArgumentDependency(const Execution::Args& args, Execution::Args::Type type, Execution::Args::Type dependencyArgType);
+
         static ArgTypeCategory GetCategoriesPresent(const Execution::Args& arg);
 
         // Requires that arguments meet common requirements
@@ -203,7 +216,7 @@ namespace AppInstaller::CLI
         Argument::Visibility GetVisibility() const;
         Settings::ExperimentalFeature::Feature Feature() const { return m_feature; }
         Settings::TogglePolicy::Policy GroupPolicy() const { return m_groupPolicy; }
-        Settings::AdminSetting AdminSetting() const { return m_adminSetting; }
+        Settings::BoolAdminSetting AdminSetting() const { return m_adminSetting; }
 
         Argument& SetRequired(bool required) { m_required = required; return *this; }
         Argument& SetCountLimit(size_t countLimit) { m_countLimit = countLimit; return *this; }
@@ -229,11 +242,14 @@ namespace AppInstaller::CLI
         Argument(Execution::Args::Type execArgType, Resource::StringId desc, ArgumentType type, Argument::Visibility visibility, bool required, Settings::ExperimentalFeature::Feature feature) :
             m_argCommon(ArgumentCommon::ForType(execArgType)), m_desc(std::move(desc)), m_type(type), m_visibility(visibility), m_required(required), m_feature(feature) {}
 
-        Argument(Execution::Args::Type execArgType, Resource::StringId desc, ArgumentType type, Settings::TogglePolicy::Policy groupPolicy, Settings::AdminSetting adminSetting) :
+        Argument(Execution::Args::Type execArgType, Resource::StringId desc, ArgumentType type, Settings::TogglePolicy::Policy groupPolicy, Settings::BoolAdminSetting adminSetting) :
             m_argCommon(ArgumentCommon::ForType(execArgType)), m_desc(std::move(desc)), m_type(type), m_groupPolicy(groupPolicy), m_adminSetting(adminSetting) {}
 
-        Argument(Execution::Args::Type execArgType, Resource::StringId desc, ArgumentType type, Argument::Visibility visibility, Settings::TogglePolicy::Policy groupPolicy, Settings::AdminSetting adminSetting) :
+        Argument(Execution::Args::Type execArgType, Resource::StringId desc, ArgumentType type, Argument::Visibility visibility, Settings::TogglePolicy::Policy groupPolicy, Settings::BoolAdminSetting adminSetting) :
             m_argCommon(ArgumentCommon::ForType(execArgType)), m_desc(std::move(desc)), m_type(type), m_visibility(visibility), m_groupPolicy(groupPolicy), m_adminSetting(adminSetting) {}
+
+        Argument(Execution::Args::Type execArgType, Resource::StringId desc, ArgumentType type, Settings::ExperimentalFeature::Feature feature, Settings::TogglePolicy::Policy groupPolicy, Settings::BoolAdminSetting adminSetting) :
+            m_argCommon(ArgumentCommon::ForType(execArgType)), m_desc(std::move(desc)), m_type(type), m_feature(feature), m_groupPolicy(groupPolicy), m_adminSetting(adminSetting) {}
 
         ArgumentCommon m_argCommon;
         Resource::StringId m_desc;
@@ -243,6 +259,6 @@ namespace AppInstaller::CLI
         size_t m_countLimit = 1;
         Settings::ExperimentalFeature::Feature m_feature = Settings::ExperimentalFeature::Feature::None;
         Settings::TogglePolicy::Policy m_groupPolicy = Settings::TogglePolicy::Policy::None;
-        Settings::AdminSetting m_adminSetting = Settings::AdminSetting::Unknown;
+        Settings::BoolAdminSetting m_adminSetting = Settings::BoolAdminSetting::Unknown;
     };
 }

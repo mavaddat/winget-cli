@@ -2,28 +2,32 @@
 // Licensed under the MIT License.
 #pragma once
 #include "ConfigurationSetChangeData.g.h"
+#include "ConfigurationUnitResultInformation.h"
+#include <winget/ModuleCountBase.h>
 
 namespace winrt::Microsoft::Management::Configuration::implementation
 {
-    struct ConfigurationSetChangeData : ConfigurationSetChangeDataT<ConfigurationSetChangeData>
+    struct ConfigurationSetChangeData : ConfigurationSetChangeDataT<ConfigurationSetChangeData>, AppInstaller::WinRT::ModuleCountBase
     {
         using ConfigurationUnit = Configuration::ConfigurationUnit;
-        using ConfigurationUnitResultInformation = Configuration::ConfigurationUnitResultInformation;
 
         ConfigurationSetChangeData() = default;
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
         static Configuration::ConfigurationSetChangeData Create(ConfigurationSetState state);
-        static Configuration::ConfigurationSetChangeData Create(ConfigurationUnitState state, ConfigurationUnitResultInformation resultInformation, ConfigurationUnit unit);
+        static Configuration::ConfigurationSetChangeData Create(ConfigurationUnitState state, IConfigurationUnitResultInformation resultInformation, ConfigurationUnit unit);
 
         void Initialize(ConfigurationSetState state);
-        void Initialize(ConfigurationUnitState state, ConfigurationUnitResultInformation resultInformation, ConfigurationUnit unit);
+        void Initialize(ConfigurationUnitState state, IConfigurationUnitResultInformation resultInformation, ConfigurationUnit unit);
+        void Initialize(const IApplyGroupMemberSettingsResult& unitResult);
+
+        void Unit(const ConfigurationUnit& unit);
 #endif
 
         ConfigurationSetChangeEventType Change();
         ConfigurationSetState SetState();
         ConfigurationUnitState UnitState();
-        ConfigurationUnitResultInformation ResultInformation();
+        IConfigurationUnitResultInformation ResultInformation();
         ConfigurationUnit Unit();
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
@@ -31,7 +35,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         ConfigurationSetChangeEventType m_change = ConfigurationSetChangeEventType::Unknown;
         ConfigurationSetState m_setState = ConfigurationSetState::Unknown;
         ConfigurationUnitState m_unitState = ConfigurationUnitState::Unknown;
-        ConfigurationUnitResultInformation m_resultInformation = nullptr;
+        IConfigurationUnitResultInformation m_resultInformation;
         ConfigurationUnit m_unit = nullptr;
 #endif
     };

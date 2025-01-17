@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="TestConfigurationProcessorFactory.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -12,7 +12,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
     /// <summary>
     /// A test implementation of IConfigurationSetProcessorFactory.
     /// </summary>
-    internal class TestConfigurationProcessorFactory : IConfigurationSetProcessorFactory
+    internal partial class TestConfigurationProcessorFactory : IConfigurationSetProcessorFactory
     {
         /// <summary>
         /// Delegate type for CreateSetProcessor.
@@ -26,7 +26,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
         /// Diagnostics event; useful for logging and/or verbose output.
         /// </summary>
 #pragma warning disable CS0067 // The event is never used
-        public event EventHandler<DiagnosticInformation>? Diagnostics;
+        public event EventHandler<IDiagnosticInformation>? Diagnostics;
 #pragma warning restore CS0067 // The event is never used
 
         /// <summary>
@@ -120,6 +120,18 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
         {
             this.Processors[configurationSet] = new TestConfigurationSetProcessor(configurationSet);
             return this.Processors[configurationSet];
+        }
+
+        /// <summary>
+        /// A convenience function to create a new group processor for the given set and store it in the dictionary for use in the test.
+        /// </summary>
+        /// <param name="configurationSet">The set.</param>
+        /// <returns>A new TestConfigurationSetGroupProcessor for the set.</returns>
+        internal TestConfigurationSetGroupProcessor CreateTestGroupProcessor(ConfigurationSet configurationSet)
+        {
+            TestConfigurationSetGroupProcessor result = new (configurationSet);
+            this.Processors[configurationSet] = result;
+            return result;
         }
     }
 }

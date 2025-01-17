@@ -16,12 +16,16 @@ namespace Microsoft.WinGet.Configuration.Cmdlets
     /// Gets the details for the units in a configuration set.
     /// </summary>
     [Cmdlet(VerbsCommon.Get, "WinGetConfigurationDetails")]
+    [Alias("gwgcd")]
     public sealed class GetWinGetConfigurationDetailsCmdlet : PSCmdlet
     {
+        private ConfigurationCommand runningCommand = null;
+
         /// <summary>
         /// Gets or sets the configuration set.
         /// </summary>
         [Parameter(
+            Position = 0,
             Mandatory = true,
             ValueFromPipeline = true,
             ValueFromPipelineByPropertyName = true)]
@@ -32,10 +36,19 @@ namespace Microsoft.WinGet.Configuration.Cmdlets
         /// </summary>
         protected override void ProcessRecord()
         {
-            CancellationTokenSource source = new ();
+            this.runningCommand = new ConfigurationCommand(this);
+            this.runningCommand.GetDetails(this.Set);
+        }
 
-            var configCommand = new ConfigurationCommand(this, source.Token);
-            configCommand.GetDetails(this.Set);
+        /// <summary>
+        /// Interrupts currently running code within the command.
+        /// </summary>
+        protected override void StopProcessing()
+        {
+            if (this.runningCommand != null)
+            {
+                this.runningCommand.Cancel();
+            }
         }
     }
 }

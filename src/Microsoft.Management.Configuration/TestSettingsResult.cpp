@@ -2,14 +2,28 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "TestSettingsResult.h"
-#include "TestSettingsResult.g.cpp"
 #include "ConfigurationUnitResultInformation.h"
 
 namespace winrt::Microsoft::Management::Configuration::implementation
 {
-    TestSettingsResult::TestSettingsResult() :
-        m_resultInformation(*make_self<wil::details::module_count_wrapper<implementation::ConfigurationUnitResultInformation>>())
+    void TestSettingsResult::Unit(const ConfigurationUnit& value)
     {
+        m_unit = value;
+    }
+
+    void TestSettingsResult::TestResult(ConfigurationTestResult value)
+    {
+        m_testResult = value;
+    }
+
+    void TestSettingsResult::ResultInformation(const IConfigurationUnitResultInformation& value)
+    {
+        m_resultInformation = value;
+    }
+
+    ConfigurationUnit TestSettingsResult::Unit()
+    {
+        return m_unit;
     }
 
     ConfigurationTestResult TestSettingsResult::TestResult()
@@ -17,12 +31,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         return m_testResult;
     }
 
-    void TestSettingsResult::TestResult(ConfigurationTestResult const& value)
-    {
-        m_testResult = value;
-    }
-
-    Configuration::ConfigurationUnitResultInformation TestSettingsResult::ResultInformation()
+    IConfigurationUnitResultInformation TestSettingsResult::ResultInformation()
     {
         return m_resultInformation;
     }
